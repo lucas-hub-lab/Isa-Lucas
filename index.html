@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Zuhause">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -47,7 +50,7 @@
   --nav-h:56px;
 }
 
-html,body{height:100%;overflow:hidden;background:var(--c0)}
+html,body{height:100%;overflow:hidden;background:var(--c0);max-width:100vw}
 body{
   font-family:'DM Sans',sans-serif;font-size:15px;
   color:var(--c6);overscroll-behavior:none;
@@ -60,6 +63,8 @@ body{
 .app{
   height:100%;
   background:var(--c0);
+  overflow-x:hidden;
+  max-width:100%;
 }
 
 /* Header */
@@ -137,6 +142,7 @@ body{
   background:var(--c1);border:1px solid var(--c2);
   border-radius:var(--rl);overflow:hidden;
   box-shadow:var(--sh);margin:0 16px 10px;
+  min-width:0;max-width:calc(100vw - 32px);
 }
 .card-head{
   display:flex;align-items:center;justify-content:space-between;
@@ -167,9 +173,10 @@ body{
 .hero{
   margin:12px 16px 0;
   background:var(--sage);border-radius:var(--rl);
-  padding:14px 18px;
+  padding:12px 16px;
   display:flex;align-items:center;justify-content:space-between;
   position:relative;overflow:hidden;
+  min-width:0;
 }
 .hero::after{
   content:'';position:absolute;
@@ -179,10 +186,10 @@ body{
 .hero-text{}
 .hero-greet{font-size:10px;color:rgba(255,255,255,.6);font-weight:600;letter-spacing:.6px;text-transform:uppercase}
 .hero-week{font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#fff;margin-top:2px}
-.hero-chips{display:flex;gap:6px}
+.hero-chips{display:flex;gap:5px;flex-shrink:0}
 .hchip{
   background:rgba(255,255,255,.15);border-radius:9px;
-  padding:7px 11px;text-align:center;min-width:48px;
+  padding:7px 9px;text-align:center;min-width:44px;
 }
 .hchip-v{font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#fff;line-height:1}
 .hchip-l{font-size:9px;color:rgba(255,255,255,.6);font-weight:600;text-transform:uppercase;letter-spacing:.3px;margin-top:2px}
@@ -191,8 +198,8 @@ body{
    DAY STRIP
 ══════════════════════════════════════════ */
 .day-strip{
-  display:grid;grid-template-columns:repeat(7,1fr);
-  gap:4px;padding:10px 16px 0;
+  display:grid;grid-template-columns:repeat(7,minmax(0,1fr));
+  gap:3px;padding:10px 16px 0;
 }
 .day-cell{
   display:flex;flex-direction:column;align-items:center;
@@ -238,8 +245,8 @@ body{
 .cb.pop{animation:pop .25s cubic-bezier(.34,1.6,.64,1)}
 @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
 
-.task-info{flex:1;min-width:0}
-.task-name{font-size:14px;font-weight:500;color:var(--c6);line-height:1.35}
+.task-info{flex:1;min-width:0;overflow:hidden}
+.task-name{font-size:14px;font-weight:500;color:var(--c6);line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .task-name.done{text-decoration:line-through;color:var(--c4);font-weight:400}
 .task-meta{
   display:flex;align-items:center;gap:5px;
@@ -400,10 +407,10 @@ body{
 .modal-sheet{
   background:var(--c1);
   border-radius:24px 24px 0 0;
-  padding:0 20px calc(22px + var(--sab));
-  width:100%;max-width:480px;
+  padding:0 18px calc(22px + var(--sab));
+  width:100%;max-width:100%;
   border-top:1.5px solid var(--c2);
-  max-height:88vh;overflow-y:auto;
+  max-height:88vh;overflow-y:auto;overflow-x:hidden;
   box-shadow:0 -8px 32px rgba(42,30,10,.12);
 }
 .modal-drag{
@@ -469,6 +476,7 @@ body{
 .cal-grid{
   display:grid;grid-template-columns:repeat(7,1fr);
   gap:2px;text-align:center;padding:0 16px 12px;
+  width:100%;box-sizing:border-box;
 }
 .cal-dh{font-size:10px;color:var(--c4);padding:5px 0;font-weight:700}
 .cal-dc{
@@ -565,13 +573,6 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
   <!-- QUICK-ADD BAR (Einkauf) -->
   <div class="qa-bar hidden" id="qaBar">
     <input id="qaInput" placeholder="Artikel hinzufügen..." onkeydown="if(event.key==='Enter')qaAdd()">
-    <select id="qaCat" title="Kategorie">
-      <option value="Obst &amp; Gemüse">🥦</option>
-      <option value="Kühlwaren">🥛</option>
-      <option value="Vorräte">🥫</option>
-      <option value="Haushalt">🧴</option>
-      <option value="Sonstiges" selected>📦</option>
-    </select>
     <button class="qa-btn" onclick="qaAdd()">+</button>
   </div>
 
@@ -662,7 +663,7 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
 <div class="modal-bg" id="shiftModal">
 <div class="modal-sheet">
   <div class="modal-drag" onclick="closeModal('shiftModal')"><div class="modal-drag-bar"></div></div>
-  <div class="modal-title">Schicht eintragen</div>
+  <div class="modal-title" id="shiftModalTitle">Schicht eintragen</div>
   <span class="field-label">Datum</span>
   <input class="field-input" id="shDate" type="date">
   <span class="field-label" style="margin-top:12px">Dienst</span>
@@ -672,10 +673,18 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     <option value="N">N – Nachtdienst (19:00–7:00)</option>
     <option value="U">🌴 Urlaub / Frei</option>
   </select>
-  <div class="modal-btns">
+  <div class="modal-btns" style="margin-top:20px">
     <button class="modal-cancel" onclick="closeModal('shiftModal')">Abbrechen</button>
     <button class="modal-save" onclick="saveShift()">Speichern</button>
   </div>
+  <!-- Delete button — only shown when editing existing entry -->
+  <button id="shiftDeleteBtn" onclick="deleteShift()"
+    style="display:none;width:100%;margin-top:10px;padding:13px;
+    background:none;border:1px solid var(--terra);border-radius:var(--r);
+    color:var(--terra);font-size:14px;font-weight:600;
+    font-family:'DM Sans',sans-serif;cursor:pointer;">
+    🗑 Eintrag löschen
+  </button>
 </div>
 </div>
 
@@ -707,8 +716,11 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     <div id="monthPickWrap" style="display:none;margin-top:12px">
       <span class="field-label">Monat des Screenshots</span>
       <select class="field-select" id="impMonth" style="margin-top:5px">
+        <option value="2026-01">Jänner 2026</option>
+        <option value="2026-02">Februar 2026</option>
+        <option value="2026-03">März 2026</option>
         <option value="2026-04">April 2026</option>
-        <option value="2026-05" selected>Mai 2026</option>
+        <option value="2026-05">Mai 2026</option>
         <option value="2026-06">Juni 2026</option>
         <option value="2026-07">Juli 2026</option>
         <option value="2026-08">August 2026</option>
@@ -716,6 +728,12 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
         <option value="2026-10">Oktober 2026</option>
         <option value="2026-11">November 2026</option>
         <option value="2026-12">Dezember 2026</option>
+        <option value="2027-01">Jänner 2027</option>
+        <option value="2027-02">Februar 2027</option>
+        <option value="2027-03">März 2027</option>
+        <option value="2027-04">April 2027</option>
+        <option value="2027-05">Mai 2027</option>
+        <option value="2027-06">Juni 2027</option>
       </select>
     </div>
 
@@ -775,7 +793,8 @@ const CAT_ICONS = {putz:'🧹', garten:'🌿', todo:'📋'};
 
 let activeTab = 0;        // 0=Heute 1=Putzen 2=Garten 3=Einkauf 4=Kalender
 let weekOffset = 0;       // 0 = current week
-let calYear = 2026, calMonth = 5;  // displayed calendar month
+const _now = new Date();
+let calYear = _now.getFullYear(), calMonth = _now.getMonth() + 1; // displayed calendar month
 
 // Data
 let tasks = [], comps = {}, shifts = {}, groceries = [], fairLog = [], absences = new Set();
@@ -787,9 +806,13 @@ let impImg = null, impMime = null, impParsed = [];
    DATE UTILITIES
 ══════════════════════════════════════════ */
 function weekDates(offset) {
-  const base = new Date(2026, 4, 18); // Mon 18 May 2026
-  const mon = new Date(base);
-  mon.setDate(mon.getDate() + offset * 7);
+  // Start from the real current Monday
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun, 1=Mon, ...
+  const diffToMon = (dow === 0) ? -6 : 1 - dow; // days back to Monday
+  const mon = new Date(now);
+  mon.setHours(0, 0, 0, 0);
+  mon.setDate(now.getDate() + diffToMon + offset * 7);
   return Array.from({length:7}, (_, i) => {
     const d = new Date(mon); d.setDate(mon.getDate() + i); return d;
   });
@@ -1205,19 +1228,14 @@ function renderTasks(cat, dates) {
    TAB 3: EINKAUF
 ══════════════════════════════════════════ */
 function renderEinkauf() {
-  const byCat = {};
-  groceries.forEach(g => {
-    if (!byCat[g.cat]) byCat[g.cat] = [];
-    byCat[g.cat].push(g);
-  });
-  const openCount = groceries.filter(g => !g.done).length;
-  const doneCount = groceries.filter(g => g.done).length;
+  const openItems = groceries.filter(g => !g.done);
+  const doneItems = groceries.filter(g => g.done);
 
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px">
       <div>
         <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--c6)">🛒 Einkaufsliste</div>
-        <div style="font-size:12px;color:var(--c4);margin-top:2px">${openCount} offen · ${doneCount} erledigt</div>
+        <div style="font-size:12px;color:var(--c4);margin-top:2px">${openItems.length} offen · ${doneItems.length} erledigt</div>
       </div>
       <button class="btn-ghost" onclick="clearDoneGroceries()">✓ Erledigt löschen</button>
     </div>`;
@@ -1226,18 +1244,7 @@ function renderEinkauf() {
     html += `<div class="empty-state"><div class="empty-icon">🛒</div>Liste ist leer.<br>Unten tippen und los!</div>`;
   } else {
     html += `<div class="card"><div class="card-body">`;
-    // Open items first grouped by cat
-    const openByCat = {};
-    groceries.filter(g => !g.done).forEach(g => {
-      if (!openByCat[g.cat]) openByCat[g.cat] = [];
-      openByCat[g.cat].push(g);
-    });
-    Object.entries(openByCat).forEach(([cat, items]) => {
-      html += `<div class="groc-cat">${cat}</div>`;
-      items.forEach(g => html += grocRowHTML(g));
-    });
-    // Done items
-    const doneItems = groceries.filter(g => g.done);
+    openItems.forEach(g => html += grocRowHTML(g));
     if (doneItems.length > 0) {
       html += `<div class="done-sep">Im Korb</div>`;
       doneItems.forEach(g => html += grocRowHTML(g));
@@ -1253,7 +1260,6 @@ function grocRowHTML(g) {
     <div class="groc-row" onclick="toggleGrocery(${g.id})">
       <div class="cb-wrap"><div class="cb ${g.done ? 'checked' : ''}" id="gcb-${g.id}"></div></div>
       <span class="task-name ${g.done ? 'done' : ''}" style="flex:1">${g.name}</span>
-      <span style="font-size:10px;color:var(--c4);margin-right:6px">${g.cat !== 'Sonstiges' ? g.cat : ''}</span>
       <button class="groc-del" onclick="event.stopPropagation();deleteGrocery(${g.id})">×</button>
     </div>`;
 }
@@ -1470,8 +1476,7 @@ async function qaAdd() {
   const inp = document.getElementById('qaInput');
   const name = inp.value.trim();
   if (!name) return;
-  const cat = document.getElementById('qaCat').value;
-  const {data} = await SB.from('groceries').insert({name, cat, done:false, added_by:'lucas'}).select().single();
+  const {data} = await SB.from('groceries').insert({name, cat:'Sonstiges', done:false, added_by:'lucas'}).select().single();
   if (data) groceries.push(data);
   inp.value = '';
   if (activeTab === 3) render();
@@ -1501,9 +1506,18 @@ async function clearDoneGroceries() {
    ACTIONS — SHIFTS
 ══════════════════════════════════════════ */
 function openShiftFor(dateStr) {
-  document.getElementById('shDate').value = dateStr;
   const existing = shifts[dateStr];
+  document.getElementById('shDate').value = dateStr;
   document.getElementById('shType').value = existing || 'L';
+  // Show delete only if entry exists
+  const delBtn = document.getElementById('shiftDeleteBtn');
+  delBtn.style.display = existing ? 'block' : 'none';
+  // Dynamic title
+  const d = new Date(dateStr + 'T12:00:00');
+  const label = d.toLocaleDateString('de', {weekday:'short', day:'numeric', month:'short'});
+  document.getElementById('shiftModalTitle').textContent = existing
+    ? `Schicht bearbeiten — ${label}`
+    : `Schicht eintragen — ${label}`;
   openModal('shiftModal');
 }
 async function saveShift() {
@@ -1512,6 +1526,14 @@ async function saveShift() {
   if (!date) return;
   await SB.from('shifts').upsert({shift_date:date, shift_type:type}, {onConflict:'shift_date'});
   shifts[date] = type;
+  closeModal('shiftModal');
+  render();
+}
+async function deleteShift() {
+  const date = document.getElementById('shDate').value;
+  if (!date) return;
+  await SB.from('shifts').delete().eq('shift_date', date);
+  delete shifts[date];
   closeModal('shiftModal');
   render();
 }
@@ -1539,6 +1561,10 @@ function openImport() {
   document.getElementById('imgPreviewWrap').style.display = 'none';
   document.getElementById('monthPickWrap').style.display = 'none';
   document.getElementById('imgFile').value = '';
+  // Pre-select current calendar month
+  const val = `${calYear}-${String(calMonth).padStart(2,'0')}`;
+  const sel = document.getElementById('impMonth');
+  if (sel) sel.value = val;
   openModal('importModal');
 }
 function onDrop(e) {
@@ -1594,7 +1620,11 @@ Nur eindeutige Tage eintragen. Unsichere Tage weglassen.`;
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -1670,6 +1700,15 @@ async function confirmImport() {
 ══════════════════════════════════════════ */
 setSync('loading');
 loadAll().then(() => setupRealtime());
+
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/Isa-Lucas/sw.js')
+      .then(reg => console.log('SW registered:', reg.scope))
+      .catch(err => console.log('SW failed:', err));
+  });
+}
 </script>
 </body>
 </html>
