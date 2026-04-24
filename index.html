@@ -687,11 +687,24 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     </div>
     <div class="ctx-item" id="ctxAssignLucas" onclick="ctxAssign('lucas')">
       <span class="ctx-item-icon">👤</span>
-      <div>Diese Woche: Lucas</div>
+      <div>
+        <div>Diese Woche: Lucas</div>
+        <div style="font-size:12px;color:var(--c4);margin-top:1px">Nur für diese Woche</div>
+      </div>
     </div>
     <div class="ctx-item" id="ctxAssignIsabell" onclick="ctxAssign('isabell')">
       <span class="ctx-item-icon">👤</span>
-      <div>Diese Woche: Isabell</div>
+      <div>
+        <div>Diese Woche: Isabell</div>
+        <div style="font-size:12px;color:var(--c4);margin-top:1px">Nur für diese Woche</div>
+      </div>
+    </div>
+    <div class="ctx-item" id="ctxAssignReset" onclick="ctxResetAssign()" style="display:none">
+      <span class="ctx-item-icon">↺</span>
+      <div>
+        <div>Zuweisung zurücksetzen</div>
+        <div style="font-size:12px;color:var(--c4);margin-top:1px">Zurück zur automatischen Verteilung</div>
+      </div>
     </div>
     <div class="ctx-item" onclick="ctxEdit()">
       <span class="ctx-item-icon">✏️</span>
@@ -989,10 +1002,11 @@ function weekFree(offset = weekOffset) {
   }, {l:0, i:0});
 }
 function assignTask(assign, taskId) {
-  // Check week-level override first
+  // Check week-level override first (use string key for consistency)
   const wk = weekKey();
-  if (taskId && weekOverrides[wk] && weekOverrides[wk][taskId]) {
-    return weekOverrides[wk][taskId];
+  const key = String(taskId);
+  if (key && weekOverrides[wk] && weekOverrides[wk][key]) {
+    return weekOverrides[wk][key];
   }
   if (assign === 'lucas') return absences.has(wk) ? 'isabell' : 'lucas';
   if (assign === 'isabell') return 'isabell';
@@ -1034,14 +1048,14 @@ function setSync(state) {
 async function loadAll() {
   setSync('loading');
   try {
-    const [tRes, cRes, sRes, gRes, fRes, aRes, ovRes] = await Promise.all([
+    // Core data — must succeed
+    const [tRes, cRes, sRes, gRes, fRes, aRes] = await Promise.all([
       SB.from('tasks').select('*').order('id'),
       SB.from('task_completions').select('*'),
       SB.from('shifts').select('*'),
       SB.from('groceries').select('*').order('created_at'),
       SB.from('fairness_log').select('*').order('week_key', {ascending:false}).limit(10),
       SB.from('absences').select('*'),
-      SB.from('task_overrides').select('*'),
     ]);
     allTasksRaw = tRes.data || [];
     tasks = allTasksRaw.filter(row => row.active !== false);
@@ -1055,21 +1069,30 @@ async function loadAll() {
     groceries = gRes.data || [];
     fairLog = fRes.data || [];
     absences = new Set((aRes.data || []).map(x => x.week_key));
-    // Load week overrides (assign + defer)
+
+    // Overrides — optional, don't block core if fails
     weekOverrides = {}; deferredTasks = {};
-    (ovRes.data || []).forEach(x => {
-      if (x.action === 'assign') {
-        if (!weekOverrides[x.week_key]) weekOverrides[x.week_key] = {};
-        weekOverrides[x.week_key][x.task_id] = x.value;
-      } else if (x.action === 'defer') {
-        deferredTasks[x.task_id] = x.value;
-      }
-    });
+    try {
+      const ovRes = await SB.from('task_overrides').select('*');
+      (ovRes.data || []).forEach(x => {
+        if (x.action === 'assign') {
+          if (!weekOverrides[x.week_key]) weekOverrides[x.week_key] = {};
+          weekOverrides[x.week_key][String(x.task_id)] = x.value;
+        } else if (x.action === 'defer') {
+          deferredTasks[String(x.task_id)] = x.value;
+        }
+      });
+    } catch(ovErr) {
+      console.warn('task_overrides load failed (non-critical):', ovErr);
+    }
+
     setSync('ok');
     render();
   } catch(e) {
     setSync('error');
-    console.error(e);
+    console.error('loadAll failed:', e);
+    // Still try to render with whatever data we have
+    render();
   }
 }
 
@@ -1183,7 +1206,7 @@ function renderHeute(dates) {
   const weekLabel = weekOffset === 0 ? 'Diese Woche' : weekOffset < 0 ? 'Letzte Woche' : 'Nächste Woche';
   const {l, i} = weekFree();
   const curWk = weekKey();
-  const allActive = tasks.filter(t => t.recur !== 'once' && (!deferredTasks[t.id] || deferredTasks[t.id] <= curWk));
+  const allActive = tasks.filter(t => t.recur !== 'once' && (!deferredTasks[String(t.id)] || deferredTasks[String(t.id)] <= curWk));
   const doneCount = allActive.filter(t => isDone(t.id)).length;
   const openG = groceries.filter(g => !g.done);
   const shiftDays = dates.filter(d => { const s = shifts[fmtDate(d)]; return s==='L'||s==='S'||s==='N'; }).length;
@@ -1302,7 +1325,7 @@ function renderHeute(dates) {
 ══════════════════════════════════════════ */
 function renderTasks(cat, dates) {
   const curWk2 = weekKey();
-  const catTasks = tasks.filter(t => t.cat === cat && (!deferredTasks[t.id] || deferredTasks[t.id] <= curWk2));
+  const catTasks = tasks.filter(t => t.cat === cat && (!deferredTasks[String(t.id)] || deferredTasks[String(t.id)] <= curWk2));
   const open = catTasks.filter(t => !isDone(t.id));
   const done = catTasks.filter(t => isDone(t.id));
   const catName = cat === 'putz' ? 'Putzen' : 'Garten';
@@ -1434,8 +1457,8 @@ function renderKalender() {
 
   // Fairness rings
   const allT = tasks.filter(t => t.recur !== 'once');
-  const lT = allT.filter(t => assignTask(t.assign) === 'lucas');
-  const iT = allT.filter(t => assignTask(t.assign) === 'isabell');
+  const lT = allT.filter(t => assignTask(t.assign, t.id) === 'lucas');
+  const iT = allT.filter(t => assignTask(t.assign, t.id) === 'isabell');
   const lD = lT.filter(t => isDone(t.id)).length;
   const iD = iT.filter(t => isDone(t.id)).length;
   const lP = lT.length ? Math.round(lD / lT.length * 100) : 0;
@@ -1644,8 +1667,8 @@ async function saveFairness(wk) {
   const {l, i} = weekFree();
   await SB.from('fairness_log').upsert({
     week_key: wk,
-    lucas_done: wt.filter(t => assignTask(t.assign) === 'lucas' && isDone(t.id)).length,
-    isabell_done: wt.filter(t => assignTask(t.assign) === 'isabell' && isDone(t.id)).length,
+    lucas_done: wt.filter(t => assignTask(t.assign, t.id) === 'lucas' && isDone(t.id)).length,
+    isabell_done: wt.filter(t => assignTask(t.assign, t.id) === 'isabell' && isDone(t.id)).length,
     lucas_hours: l, isabell_hours: i
   }, {onConflict:'week_key'});
 }
@@ -1935,10 +1958,14 @@ function openCtx(taskId) {
   const task = tasks.find(t => t.id === taskId);
   if (!task) return;
   document.getElementById('ctxTaskName').textContent = task.name;
-  // Hide "assign to X" if task is already fixed to that person
-  const cur = assignTask(task.assign);
+  const wk = weekKey();
+  const hasOverride = weekOverrides[wk] && weekOverrides[wk][String(taskId)];
+  const cur = assignTask(task.assign, taskId);
+  // Always show both assign buttons — hide current assignee's button
   document.getElementById('ctxAssignLucas').style.display = cur === 'lucas' ? 'none' : 'flex';
   document.getElementById('ctxAssignIsabell').style.display = cur === 'isabell' ? 'none' : 'flex';
+  // Show reset only when there is an active override
+  document.getElementById('ctxAssignReset').style.display = hasOverride ? 'flex' : 'none';
   document.getElementById('ctxSheet').classList.add('open');
   document.getElementById('ctxBackdrop').classList.add('open');
 }
@@ -1949,32 +1976,51 @@ function closeCtx() {
   ctxTaskId = null;
 }
 
+async function ctxResetAssign() {
+  if (!ctxTaskId) return;
+  const taskId = ctxTaskId; // capture BEFORE closeCtx nulls it
+  closeCtx();
+  const wk = weekKey();
+  if (weekOverrides[wk]) delete weekOverrides[wk][String(taskId)];
+  await SB.from('task_overrides').delete()
+    .eq('task_id', taskId)
+    .eq('week_key', wk)
+    .eq('action', 'assign');
+  render();
+}
+
 async function ctxDefer() {
   if (!ctxTaskId) return;
+  const taskId = ctxTaskId; // capture BEFORE closeCtx nulls it
   closeCtx();
-  // Mark as deferred for current week — hide until next week
   const wk = weekKey();
   const nextWk = weekKey(weekOffset + 1);
-  deferredTasks[ctxTaskId] = nextWk;
-  // Persist to Supabase (upsert into task_overrides)
+  deferredTasks[String(taskId)] = nextWk;
   await SB.from('task_overrides').upsert(
-    {task_id: ctxTaskId, week_key: wk, action: 'defer', value: nextWk},
-    {onConflict: 'task_id,week_key'}
+    {task_id: taskId, week_key: wk, action: 'defer', value: nextWk},
+    {onConflict: 'task_id,week_key,action'}
   );
   render();
 }
 
 async function ctxAssign(person) {
   if (!ctxTaskId) return;
+  const taskId = ctxTaskId; // capture BEFORE closeCtx nulls it
   closeCtx();
   const wk = weekKey();
   if (!weekOverrides[wk]) weekOverrides[wk] = {};
-  weekOverrides[wk][ctxTaskId] = person;
-  // Persist
-  await SB.from('task_overrides').upsert(
-    {task_id: ctxTaskId, week_key: wk, action: 'assign', value: person},
-    {onConflict: 'task_id,week_key'}
+  weekOverrides[wk][String(taskId)] = person;
+  const { error } = await SB.from('task_overrides').upsert(
+    {task_id: taskId, week_key: wk, action: 'assign', value: person},
+    {onConflict: 'task_id,week_key,action'}
   );
+  if (error) {
+    await SB.from('task_overrides').delete()
+      .eq('task_id', taskId).eq('week_key', wk).eq('action', 'assign');
+    await SB.from('task_overrides').insert(
+      {task_id: taskId, week_key: wk, action: 'assign', value: person}
+    );
+  }
   render();
 }
 
@@ -1997,12 +2043,13 @@ function ctxEdit() {
 
 async function ctxDelete() {
   if (!ctxTaskId) return;
-  const task = tasks.find(t => t.id === ctxTaskId);
+  const taskId = ctxTaskId; // capture BEFORE closeCtx nulls it
+  const task = tasks.find(t => t.id === taskId);
   if (!task) return;
   closeCtx();
-  tasks = tasks.filter(t => t.id !== ctxTaskId);
-  allTasksRaw = allTasksRaw.filter(t => t.id !== ctxTaskId);
-  await SB.from('tasks').delete().eq('id', ctxTaskId);
+  tasks = tasks.filter(t => t.id !== taskId);
+  allTasksRaw = allTasksRaw.filter(t => t.id !== taskId);
+  await SB.from('tasks').delete().eq('id', taskId);
   render();
 }
 
