@@ -1,5 +1,5 @@
-// Zuhause Service Worker — v1
-const CACHE = 'zuhause-v1';
+// Zuhause Service Worker — bump version here on every deploy to force cache refresh
+const CACHE_VERSION = 'zuhause-v3';
 const PRECACHE = [
   '/Isa-Lucas/',
   '/Isa-Lucas/index.html',
@@ -8,25 +8,39 @@ const PRECACHE = [
 ];
 
 self.addEventListener('install', e => {
+  // Skip waiting forces immediate activation on next load
+  self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(PRECACHE)).then(() => self.skipWaiting())
+    caches.open(CACHE_VERSION).then(c => c.addAll(PRECACHE))
   );
 });
 
 self.addEventListener('activate', e => {
+  // Delete all old cache versions
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', e => {
-  // Network first for Supabase/API calls, cache first for app shell
-  if (e.request.url.includes('supabase') || e.request.url.includes('api.anthropic')) {
-    return; // Always network for data
+  // Never cache Supabase or Anthropic API calls
+  const url = e.request.url;
+  if (url.includes('supabase') || url.includes('anthropic') || url.includes('googleapis')) {
+    return; // Network only
   }
+  // App shell: network first, fall back to cache
   e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
+    fetch(e.request)
+      .then(response => {
+        // Update cache with fresh response
+        const clone = response.clone();
+        caches.open(CACHE_VERSION).then(c => c.put(e.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
