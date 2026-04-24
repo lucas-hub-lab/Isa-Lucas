@@ -542,7 +542,100 @@ body{
   padding:10px 0 4px;
 }
 
+/* ── TASK MENU ── */
+.task-menu-btn{
+  width:36px;height:44px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;
+  color:var(--c4);font-size:18px;cursor:pointer;
+  border:none;background:none;padding:0;
+  border-radius:8px;transition:background .12s;
+  margin-right:-6px;
+}
+.task-menu-btn:active{background:var(--c2)}
+
+/* Bottom sheet context menu */
+.ctx-sheet{
+  position:fixed;bottom:0;left:0;right:0;z-index:300;
+  background:var(--c1);
+  border-radius:24px 24px 0 0;
+  border-top:1.5px solid var(--c2);
+  padding:0 0 calc(16px + var(--sab));
+  box-shadow:0 -8px 32px rgba(42,30,10,.15);
+  transform:translateY(100%);
+  transition:transform .25s cubic-bezier(.4,0,.2,1);
+}
+.ctx-sheet.open{transform:translateY(0)}
+.ctx-backdrop{
+  position:fixed;inset:0;z-index:299;
+  background:rgba(42,30,10,.35);
+  opacity:0;pointer-events:none;
+  transition:opacity .22s;
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+}
+.ctx-backdrop.open{opacity:1;pointer-events:all}
+.ctx-task-name{
+  font-family:'Fraunces',serif;font-size:16px;font-weight:600;
+  color:var(--c6);padding:16px 20px 10px;
+  border-bottom:1px solid var(--c2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ctx-item{
+  display:flex;align-items:center;gap:14px;
+  padding:15px 20px;cursor:pointer;
+  font-size:15px;color:var(--c6);font-weight:500;
+  border-bottom:1px solid var(--c2);
+  transition:background .1s;
+  -webkit-user-select:none;user-select:none;
+}
+.ctx-item:last-child{border-bottom:none}
+.ctx-item:active{background:var(--c2)}
+.ctx-item-icon{font-size:20px;width:28px;text-align:center;flex-shrink:0}
+.ctx-item.danger{color:var(--terra)}
+
 button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:none;user-select:none}
+
+/* ── TASK MANAGEMENT ── */
+.mgmt-row{
+  display:flex;align-items:center;gap:10px;
+  padding:13px 0;border-bottom:1px solid var(--c2);
+  min-height:56px;
+}
+.mgmt-row:last-child{border-bottom:none}
+.mgmt-info{flex:1;min-width:0}
+.mgmt-name{font-size:14px;font-weight:500;color:var(--c6);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mgmt-name.paused{color:var(--c4);text-decoration:line-through}
+.mgmt-meta{font-size:11px;color:var(--c4);margin-top:2px;
+  display:flex;align-items:center;gap:5px;}
+.mgmt-actions{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.mgmt-btn{
+  height:34px;border-radius:8px;border:none;cursor:pointer;
+  font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;
+  padding:0 10px;transition:opacity .1s;
+}
+.mgmt-btn:active{opacity:.7}
+.mgmt-btn-pause{background:var(--c2);color:var(--c5)}
+.mgmt-btn-play{background:var(--sage-l);color:var(--sage-d)}
+.mgmt-btn-edit{background:var(--c1);border:1px solid var(--c2);color:var(--c5)}
+
+/* Org section headers */
+.org-section{margin-bottom:4px}
+.org-section-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 16px 8px;
+}
+.org-section-title{
+  font-family:'Fraunces',serif;font-size:17px;
+  font-weight:700;color:var(--c6);
+  display:flex;align-items:center;gap:7px;
+}
+.org-badge{
+  font-family:'DM Sans',sans-serif;font-size:11px;
+  font-weight:600;color:var(--c4);
+  background:var(--c2);border-radius:10px;
+  padding:2px 7px;
+}
+.org-badge.paused-badge{background:var(--terra-l);color:var(--terra)}
 </style>
 </head>
 <body>
@@ -579,6 +672,37 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
   <!-- FAB (Aufgaben) -->
   <button class="fab" id="fabBtn" style="display:none" onclick="openTaskModal()">+</button>
 
+  <!-- CONTEXT MENU BACKDROP -->
+  <div class="ctx-backdrop" id="ctxBackdrop" onclick="closeCtx()"></div>
+
+  <!-- CONTEXT SHEET -->
+  <div class="ctx-sheet" id="ctxSheet">
+    <div class="ctx-task-name" id="ctxTaskName"></div>
+    <div class="ctx-item" onclick="ctxDefer()">
+      <span class="ctx-item-icon">↷</span>
+      <div>
+        <div>Auf nächste Woche verschieben</div>
+        <div style="font-size:12px;color:var(--c4);margin-top:1px">Wird diese Woche ausgeblendet</div>
+      </div>
+    </div>
+    <div class="ctx-item" id="ctxAssignLucas" onclick="ctxAssign('lucas')">
+      <span class="ctx-item-icon">👤</span>
+      <div>Diese Woche: Lucas</div>
+    </div>
+    <div class="ctx-item" id="ctxAssignIsabell" onclick="ctxAssign('isabell')">
+      <span class="ctx-item-icon">👤</span>
+      <div>Diese Woche: Isabell</div>
+    </div>
+    <div class="ctx-item" onclick="ctxEdit()">
+      <span class="ctx-item-icon">✏️</span>
+      <div>Aufgabe bearbeiten</div>
+    </div>
+    <div class="ctx-item danger" onclick="ctxDelete()">
+      <span class="ctx-item-icon">🗑</span>
+      <div>Löschen</div>
+    </div>
+  </div>
+
   <!-- BOTTOM NAV -->
   <nav class="bnav">
     <div class="ni active" id="nav-0" onclick="goTab(0)">
@@ -599,7 +723,7 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     </div>
     <div class="ni" id="nav-4" onclick="goTab(4)">
       <svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-      <span>Kalender</span>
+      <span>Organis.</span>
     </div>
   </nav>
 
@@ -791,15 +915,25 @@ const SB = supabase.createClient(
 const DAYS = ['Mo','Di','Mi','Do','Fr','Sa','So'];
 const CAT_ICONS = {putz:'🧹', garten:'🌿', todo:'📋'};
 
-let activeTab = 0;        // 0=Heute 1=Putzen 2=Garten 3=Einkauf 4=Kalender
-let weekOffset = 0;       // 0 = current week
-const _now = new Date();
-let calYear = _now.getFullYear(), calMonth = _now.getMonth() + 1; // displayed calendar month
+// ── Navigation ──
+let activeTab = 0;
+let weekOffset = 0;
 
-// Data
-let tasks = [], comps = {}, shifts = {}, groceries = [], fairLog = [], absences = new Set();
+// ── Calendar ──
+const _nd = new Date();
+let calYear = _nd.getFullYear(), calMonth = _nd.getMonth() + 1;
 
-// Import state
+// ── Task editing ──
+let editingTaskId = null;
+
+// ── Data ──
+let tasks = [], allTasksRaw = [];
+let comps = {}, shifts = {};
+let groceries = [], fairLog = [];
+let absences = new Set();
+let weekOverrides = {}, deferredTasks = {};
+
+// ── Import ──
 let impImg = null, impMime = null, impParsed = [];
 
 /* ══════════════════════════════════════════
@@ -854,8 +988,13 @@ function weekFree(offset = weekOffset) {
     return { l: acc.l + lucasFree(ds), i: acc.i + isabellFree(ds) };
   }, {l:0, i:0});
 }
-function assignTask(assign) {
-  if (assign === 'lucas') return absences.has(weekKey()) ? 'isabell' : 'lucas';
+function assignTask(assign, taskId) {
+  // Check week-level override first
+  const wk = weekKey();
+  if (taskId && weekOverrides[wk] && weekOverrides[wk][taskId]) {
+    return weekOverrides[wk][taskId];
+  }
+  if (assign === 'lucas') return absences.has(wk) ? 'isabell' : 'lucas';
   if (assign === 'isabell') return 'isabell';
   if (assign === 'both') return 'both';
   const {l, i} = weekFree();
@@ -895,25 +1034,37 @@ function setSync(state) {
 async function loadAll() {
   setSync('loading');
   try {
-    const [t, c, s, g, f, a] = await Promise.all([
-      SB.from('tasks').select('*').eq('active', true).order('id'),
+    const [tRes, cRes, sRes, gRes, fRes, aRes, ovRes] = await Promise.all([
+      SB.from('tasks').select('*').order('id'),
       SB.from('task_completions').select('*'),
       SB.from('shifts').select('*'),
       SB.from('groceries').select('*').order('created_at'),
       SB.from('fairness_log').select('*').order('week_key', {ascending:false}).limit(10),
       SB.from('absences').select('*'),
+      SB.from('task_overrides').select('*'),
     ]);
-    tasks = t.data || [];
+    allTasksRaw = tRes.data || [];
+    tasks = allTasksRaw.filter(row => row.active !== false);
     comps = {};
-    (c.data || []).forEach(x => {
+    (cRes.data || []).forEach(x => {
       if (!comps[x.week_key]) comps[x.week_key] = {};
       comps[x.week_key][x.task_id] = x;
     });
     shifts = {};
-    (s.data || []).forEach(x => { shifts[x.shift_date] = x.shift_type; });
-    groceries = g.data || [];
-    fairLog = f.data || [];
-    absences = new Set((a.data || []).map(x => x.week_key));
+    (sRes.data || []).forEach(x => { shifts[x.shift_date] = x.shift_type; });
+    groceries = gRes.data || [];
+    fairLog = fRes.data || [];
+    absences = new Set((aRes.data || []).map(x => x.week_key));
+    // Load week overrides (assign + defer)
+    weekOverrides = {}; deferredTasks = {};
+    (ovRes.data || []).forEach(x => {
+      if (x.action === 'assign') {
+        if (!weekOverrides[x.week_key]) weekOverrides[x.week_key] = {};
+        weekOverrides[x.week_key][x.task_id] = x.value;
+      } else if (x.action === 'defer') {
+        deferredTasks[x.task_id] = x.value;
+      }
+    });
     setSync('ok');
     render();
   } catch(e) {
@@ -999,6 +1150,10 @@ function taskRowHTML(task, assigned, day) {
   const muell = task.muell ? ` <span style="color:var(--c4);font-size:11px">· Do Abend</span>` : '';
   const whoCls = assigned === 'lucas' ? 'who-l' : assigned === 'isabell' ? 'who-i' : 'who-b';
   const whoTxt = assigned === 'lucas' ? 'Lucas' : assigned === 'isabell' ? 'Isabell' : 'Beide';
+  // Check week override
+  const wk = weekKey();
+  const ovr = weekOverrides[wk] && weekOverrides[wk][task.id];
+  const ovrBadge = ovr ? `<span style="font-size:9px;color:var(--lav-d);font-weight:700;margin-left:2px">↷ ${ovr}</span>` : '';
   return `
     <div class="task-row" onclick="toggleTask(${task.id})">
       <div class="cb-wrap">
@@ -1010,9 +1165,11 @@ function taskRowHTML(task, assigned, day) {
           <span class="dot ${pDot}"></span>
           <span class="tag ${rTag}">${rText}</span>
           ${task.day ? `<span style="font-size:11px;color:var(--c4)">${task.day}</span>` : ''}
+          ${ovrBadge}
         </div>
       </div>
       <span class="who-badge ${whoCls}">${whoTxt}</span>
+      <button class="task-menu-btn" onclick="event.stopPropagation();openCtx(${task.id})">⋮</button>
     </div>`;
 }
 
@@ -1025,7 +1182,8 @@ function renderHeute(dates) {
   const greet = hour < 12 ? 'Guten Morgen ☀️' : hour < 18 ? 'Guten Nachmittag 🌤' : 'Guten Abend 🌙';
   const weekLabel = weekOffset === 0 ? 'Diese Woche' : weekOffset < 0 ? 'Letzte Woche' : 'Nächste Woche';
   const {l, i} = weekFree();
-  const allActive = tasks.filter(t => t.recur !== 'once');
+  const curWk = weekKey();
+  const allActive = tasks.filter(t => t.recur !== 'once' && (!deferredTasks[t.id] || deferredTasks[t.id] <= curWk));
   const doneCount = allActive.filter(t => isDone(t.id)).length;
   const openG = groceries.filter(g => !g.done);
   const shiftDays = dates.filter(d => { const s = shifts[fmtDate(d)]; return s==='L'||s==='S'||s==='N'; }).length;
@@ -1094,7 +1252,7 @@ function renderHeute(dates) {
     html += `<div class="sec-lbl">Noch offen <span class="sec-lbl-count">${open.length}</span></div>`;
     html += `<div class="card"><div class="card-body">`;
     open.slice(0, 8).forEach(t => {
-      const a = assignTask(t.assign), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+      const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
       html += taskRowHTML(t, a, day);
     });
     if (open.length > 8) {
@@ -1107,7 +1265,7 @@ function renderHeute(dates) {
     html += `<div class="sec-lbl" style="color:var(--c4)">Erledigt <span class="sec-lbl-count">${done.length}</span></div>`;
     html += `<div class="card"><div class="card-body">`;
     done.forEach(t => {
-      const a = assignTask(t.assign), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+      const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
       html += taskRowHTML(t, a, day);
     });
     html += `</div></div>`;
@@ -1143,7 +1301,8 @@ function renderHeute(dates) {
    TAB 1+2: PUTZEN / GARTEN
 ══════════════════════════════════════════ */
 function renderTasks(cat, dates) {
-  const catTasks = tasks.filter(t => t.cat === cat);
+  const curWk2 = weekKey();
+  const catTasks = tasks.filter(t => t.cat === cat && (!deferredTasks[t.id] || deferredTasks[t.id] <= curWk2));
   const open = catTasks.filter(t => !isDone(t.id));
   const done = catTasks.filter(t => isDone(t.id));
   const catName = cat === 'putz' ? 'Putzen' : 'Garten';
@@ -1180,14 +1339,14 @@ function renderTasks(cat, dates) {
 
   html += `<div class="card"><div class="card-body">`;
   open.forEach(t => {
-    const a = assignTask(t.assign), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+    const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
     html += taskRowHTML(t, a, day);
   });
   if (done.length > 0 && open.length > 0) {
     html += `<div class="done-sep">Erledigt</div>`;
   }
   done.forEach(t => {
-    const a = assignTask(t.assign), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+    const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
     html += taskRowHTML(t, a, day);
   });
   html += `</div></div>`;
@@ -1208,12 +1367,12 @@ function renderTasks(cat, dates) {
         </div>
         <div class="card"><div class="card-body">`;
       todosOpen.forEach(t => {
-        const a = assignTask(t.assign), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+        const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
         html += taskRowHTML(t, a, day);
       });
       if (todosDone.length > 0 && todosOpen.length > 0) html += `<div class="done-sep">Erledigt</div>`;
       todosDone.forEach(t => {
-        const a = assignTask(t.assign), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+        const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
         html += taskRowHTML(t, a, day);
       });
       html += `</div></div>`;
@@ -1265,7 +1424,7 @@ function grocRowHTML(g) {
 }
 
 /* ══════════════════════════════════════════
-   TAB 4: KALENDER
+   TAB 4: ORGANISATION (Kalender + Task-Verwaltung)
 ══════════════════════════════════════════ */
 function renderKalender() {
   const monthName = new Date(calYear, calMonth - 1, 1).toLocaleString('de', {month:'long', year:'numeric'});
@@ -1383,6 +1542,70 @@ function renderKalender() {
     html += `</div></div>`;
   }
 
+  // ── AUFGABEN VERWALTEN ──
+  html += `
+    <div class="org-section">
+      <div class="org-section-head">
+        <div class="org-section-title">
+          ⚙️ Aufgaben verwalten
+        </div>
+        <button class="btn-primary" onclick="openTaskModal()">+ Neu</button>
+      </div>
+    </div>`;
+
+  const cats = [
+    {id:'putz',  icon:'🧹', label:'Putzen'},
+    {id:'garten',icon:'🌿', label:'Garten'},
+    {id:'todo',  icon:'📋', label:'To-Dos'},
+  ];
+
+  cats.forEach(cat => {
+    // All tasks in this cat (active + paused)
+    const allCatTasks = allTasksRaw.filter(t => t.cat === cat.id);
+    const activeCnt = allCatTasks.filter(t => t.active).length;
+    const pausedCnt = allCatTasks.filter(t => !t.active).length;
+    if (allCatTasks.length === 0) return;
+
+    html += `
+      <div class="org-section">
+        <div class="org-section-head">
+          <div class="org-section-title">
+            ${cat.icon} ${cat.label}
+            <span class="org-badge">${activeCnt} aktiv</span>
+            ${pausedCnt > 0 ? `<span class="org-badge paused-badge">${pausedCnt} pausiert</span>` : ''}
+          </div>
+          <button class="btn-ghost" style="font-size:12px" onclick="openTaskModal('${cat.id}')">+ Neu</button>
+        </div>
+        <div class="card"><div class="card-body">`;
+
+    allCatTasks.forEach(t => {
+      const rText = {daily:'tägl.', biweekly:'2-wöch.', once:'einm.', weekly:'wöch.'}[t.recur] || 'wöch.';
+      const assignTxt = t.assign === 'auto' ? 'Auto' : t.assign === 'both' ? 'Beide' : t.assign === 'lucas' ? 'Lucas' : 'Isabell';
+      const isPaused = t.active === false;
+      html += `
+        <div class="mgmt-row">
+          <div class="mgmt-info">
+            <div class="mgmt-name ${isPaused ? 'paused' : ''}">${t.name}</div>
+            <div class="mgmt-meta">
+              <span>${rText}</span>
+              ${t.day ? `<span>· ${t.day}</span>` : ''}
+              <span>· ${assignTxt}</span>
+              ${isPaused ? '<span style="color:var(--terra);font-weight:600">· pausiert</span>' : ''}
+            </div>
+          </div>
+          <div class="mgmt-actions">
+            <button class="mgmt-btn mgmt-btn-edit" onclick="mgmtEdit(${t.id})">✏️</button>
+            ${isPaused
+              ? `<button class="mgmt-btn mgmt-btn-play" onclick="mgmtTogglePause(${t.id}, true)">▶ Aktiv</button>`
+              : `<button class="mgmt-btn mgmt-btn-pause" onclick="mgmtTogglePause(${t.id}, false)">⏸ Pause</button>`
+            }
+          </div>
+        </div>`;
+    });
+
+    html += `</div></div></div>`;
+  });
+
   html += `<div style="height:16px"></div>`;
   return html;
 }
@@ -1429,6 +1652,7 @@ async function saveFairness(wk) {
 
 let taskModalCat = 'putz';
 function openTaskModal(cat) {
+  editingTaskId = null;
   taskModalCat = cat || (activeTab === 2 ? 'garten' : 'putz');
   document.getElementById('fName').value = '';
   document.getElementById('fAssign').value = taskModalCat === 'garten' ? 'lucas' : 'auto';
@@ -1698,6 +1922,118 @@ async function confirmImport() {
 /* ══════════════════════════════════════════
    INIT
 ══════════════════════════════════════════ */
+/* ══════════════════════════════════════════
+   TASK CONTEXT MENU
+══════════════════════════════════════════ */
+
+// week-level overrides and deferred tasks (declared at top of STATE)
+
+let ctxTaskId = null;
+
+function openCtx(taskId) {
+  ctxTaskId = taskId;
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  document.getElementById('ctxTaskName').textContent = task.name;
+  // Hide "assign to X" if task is already fixed to that person
+  const cur = assignTask(task.assign);
+  document.getElementById('ctxAssignLucas').style.display = cur === 'lucas' ? 'none' : 'flex';
+  document.getElementById('ctxAssignIsabell').style.display = cur === 'isabell' ? 'none' : 'flex';
+  document.getElementById('ctxSheet').classList.add('open');
+  document.getElementById('ctxBackdrop').classList.add('open');
+}
+
+function closeCtx() {
+  document.getElementById('ctxSheet').classList.remove('open');
+  document.getElementById('ctxBackdrop').classList.remove('open');
+  ctxTaskId = null;
+}
+
+async function ctxDefer() {
+  if (!ctxTaskId) return;
+  closeCtx();
+  // Mark as deferred for current week — hide until next week
+  const wk = weekKey();
+  const nextWk = weekKey(weekOffset + 1);
+  deferredTasks[ctxTaskId] = nextWk;
+  // Persist to Supabase (upsert into task_overrides)
+  await SB.from('task_overrides').upsert(
+    {task_id: ctxTaskId, week_key: wk, action: 'defer', value: nextWk},
+    {onConflict: 'task_id,week_key'}
+  );
+  render();
+}
+
+async function ctxAssign(person) {
+  if (!ctxTaskId) return;
+  closeCtx();
+  const wk = weekKey();
+  if (!weekOverrides[wk]) weekOverrides[wk] = {};
+  weekOverrides[wk][ctxTaskId] = person;
+  // Persist
+  await SB.from('task_overrides').upsert(
+    {task_id: ctxTaskId, week_key: wk, action: 'assign', value: person},
+    {onConflict: 'task_id,week_key'}
+  );
+  render();
+}
+
+function ctxEdit() {
+  if (!ctxTaskId) return;
+  const task = tasks.find(t => t.id === ctxTaskId);
+  closeCtx();
+  if (!task) return;
+  // Populate modal with existing values
+  document.getElementById('fName').value = task.name;
+  document.getElementById('fAssign').value = task.assign;
+  document.getElementById('fRecur').value = task.recur;
+  document.getElementById('fDay').value = task.day || '';
+  document.getElementById('fPrio').value = task.prio;
+  document.getElementById('taskModalTitle').textContent = '✏️ Aufgabe bearbeiten';
+  // Store editing ID
+  editingTaskId = task.id;
+  openModal('taskModal');
+}
+
+async function ctxDelete() {
+  if (!ctxTaskId) return;
+  const task = tasks.find(t => t.id === ctxTaskId);
+  if (!task) return;
+  closeCtx();
+  tasks = tasks.filter(t => t.id !== ctxTaskId);
+  allTasksRaw = allTasksRaw.filter(t => t.id !== ctxTaskId);
+  await SB.from('tasks').delete().eq('id', ctxTaskId);
+  render();
+}
+
+// ── Task Management (Organisation Tab) ──
+async function mgmtTogglePause(taskId, makeActive) {
+  await SB.from('tasks').update({active: makeActive}).eq('id', taskId);
+  // Update local state
+  const raw = allTasksRaw.find(t => t.id === taskId);
+  if (raw) raw.active = makeActive;
+  tasks = allTasksRaw.filter(row => row.active !== false);
+  render();
+}
+
+function mgmtEdit(taskId) {
+  const task = allTasksRaw.find(t => t.id === taskId);
+  if (!task) return;
+  editingTaskId = task.id;
+  taskModalCat = task.cat;
+  document.getElementById('fName').value = task.name;
+  document.getElementById('fAssign').value = task.assign;
+  document.getElementById('fRecur').value = task.recur;
+  document.getElementById('fDay').value = task.day || '';
+  document.getElementById('fPrio').value = task.prio || 'med';
+  document.getElementById('taskModalTitle').textContent = '✏️ Aufgabe bearbeiten';
+  openModal('taskModal');
+  setTimeout(() => document.getElementById('fName').focus(), 120);
+}
+
+// Close ctx on escape
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtx(); });
+
 setSync('loading');
 loadAll().then(() => setupRealtime());
 
