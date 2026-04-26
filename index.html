@@ -1690,17 +1690,30 @@ function openTaskModal(cat) {
 async function saveTask() {
   const name = document.getElementById('fName').value.trim();
   if (!name) return;
+  const taskId = editingTaskId; // capture BEFORE closeModal nulls it
   const assign = document.getElementById('fAssign').value;
-  const {data} = await SB.from('tasks').insert({
-    cat: taskModalCat, name, assign,
+  const updates = {
+    name, assign,
     recur: document.getElementById('fRecur').value,
-    prio: document.getElementById('fPrio').value,
-    day: document.getElementById('fDay').value,
+    prio:  document.getElementById('fPrio').value,
+    day:   document.getElementById('fDay').value,
     fixed: assign !== 'auto' && assign !== 'both',
-    active: true
-  }).select().single();
-  if (data) tasks.push(data);
+  };
   closeModal('taskModal');
+  if (taskId) {
+    // Edit existing
+    await SB.from('tasks').update(updates).eq('id', taskId);
+    const rawIdx = allTasksRaw.findIndex(t => t.id === taskId);
+    if (rawIdx >= 0) allTasksRaw[rawIdx] = {...allTasksRaw[rawIdx], ...updates};
+    tasks = allTasksRaw.filter(row => row.active !== false);
+  } else {
+    // Create new
+    const {data} = await SB.from('tasks').insert({
+      cat: taskModalCat, ...updates, active: true
+    }).select().single();
+    if (data) { allTasksRaw.push(data); tasks.push(data); }
+  }
+  editingTaskId = null;
   render();
 }
 
@@ -1789,7 +1802,10 @@ async function deleteShift() {
    MODAL HELPERS
 ══════════════════════════════════════════ */
 function openModal(id) { document.getElementById(id).classList.add('open') }
-function closeModal(id) { document.getElementById(id).classList.remove('open') }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  if (id === 'taskModal') editingTaskId = null;
+}
 document.querySelectorAll('.modal-bg').forEach(bg => {
   bg.addEventListener('click', e => { if (e.target === bg) bg.classList.remove('open'); });
 });
@@ -2044,12 +2060,14 @@ function ctxEdit() {
 async function ctxDelete() {
   if (!ctxTaskId) return;
   const taskId = ctxTaskId; // capture BEFORE closeCtx nulls it
-  const task = tasks.find(t => t.id === taskId);
+  const task = allTasksRaw.find(t => String(t.id) === String(taskId));
   if (!task) return;
+  // Confirm before permanent delete
+  if (!confirm(`"${task.name}" wirklich löschen?`)) return;
   closeCtx();
-  tasks = tasks.filter(t => t.id !== taskId);
-  allTasksRaw = allTasksRaw.filter(t => t.id !== taskId);
-  await SB.from('tasks').delete().eq('id', taskId);
+  tasks = tasks.filter(t => String(t.id) !== String(taskId));
+  allTasksRaw = allTasksRaw.filter(t => String(t.id) !== String(taskId));
+  await SB.from('tasks').update({active: false}).eq('id', taskId);
   render();
 }
 
