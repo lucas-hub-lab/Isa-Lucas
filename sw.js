@@ -1,5 +1,5 @@
 // Zuhause Service Worker — bump version here on every deploy to force cache refresh
-const CACHE_VERSION = 'zuhause-v3';
+const CACHE_VERSION = 'zuhause-v4';
 const PRECACHE = [
   '/Isa-Lucas/',
   '/Isa-Lucas/index.html',

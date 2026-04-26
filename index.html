@@ -617,6 +617,7 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
 .mgmt-btn-pause{background:var(--c2);color:var(--c5)}
 .mgmt-btn-play{background:var(--sage-l);color:var(--sage-d)}
 .mgmt-btn-edit{background:var(--c1);border:1px solid var(--c2);color:var(--c5)}
+.mgmt-btn-del{background:var(--terra-l);color:var(--terra)}
 
 /* Org section headers */
 .org-section{margin-bottom:4px}
@@ -650,9 +651,12 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
         <span id="syncLabel">Verbinde...</span>
       </div>
     </div>
-    <div class="hdr-right" id="weekNavEl">
-      <button class="icon-btn" onclick="prevWeek()">‹</button>
-      <button class="icon-btn" onclick="nextWeek()">›</button>
+    <div class="hdr-right" style="display:flex;align-items:center;gap:6px">
+      <div id="weekNavEl" style="display:flex;gap:6px">
+        <button class="icon-btn" onclick="prevWeek()">‹</button>
+        <button class="icon-btn" onclick="nextWeek()">›</button>
+      </div>
+      <button id="userBadge" onclick="switchUser()" style="width:34px;height:34px;border-radius:50%;background:var(--c2);color:var(--c5);border:1px solid var(--c3);font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">?</button>
     </div>
   </header>
 
@@ -742,6 +746,23 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
 
 </div>
 
+<!-- ══ MODAL: Benutzer wählen ══ -->
+<div class="modal-bg" id="userModal" style="background:rgba(42,30,10,.75)">
+<div class="modal-sheet" style="padding-bottom:calc(32px + var(--sab));border-radius:26px 26px 0 0">
+  <div style="padding:28px 20px 0;text-align:center">
+    <div style="font-size:36px;margin-bottom:10px">🏡</div>
+    <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--c6);margin-bottom:6px">Willkommen!</div>
+    <div style="font-size:14px;color:var(--c5);margin-bottom:28px">Wer bist du?</div>
+    <button onclick="setUser('lucas')" style="width:100%;padding:16px;background:var(--sage);color:#fff;border:none;border-radius:var(--rl);cursor:pointer;font-size:17px;font-weight:700;font-family:'DM Sans',sans-serif;margin-bottom:10px">
+      👤 Lucas
+    </button>
+    <button onclick="setUser('isabell')" style="width:100%;padding:16px;background:var(--lav);color:#fff;border:none;border-radius:var(--rl);cursor:pointer;font-size:17px;font-weight:700;font-family:'DM Sans',sans-serif">
+      👤 Isabell
+    </button>
+  </div>
+</div>
+</div>
+
 <!-- ══ MODAL: Aufgabe ══ -->
 <div class="modal-bg" id="taskModal">
 <div class="modal-sheet">
@@ -765,17 +786,13 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
       <span class="field-label">Rhythmus</span>
       <select class="field-select" id="fRecur" onchange="onRecurChange(this.value)">
         <option value="weekly">1x wöchentlich</option>
-        <option value="2xweekly">2x wöchentlich (Mo–Mi + Do–So)</option>
+        <option value="2xweekly">2x wöchentlich</option>
         <option value="biweekly">Alle 2 Wochen</option>
         <option value="daily">Täglich</option>
         <option value="once">Einmalig</option>
       </select>
-      <div id="recurHint" style="display:none;font-size:12px;color:var(--sage-d);background:var(--sage-l);border-radius:var(--r);padding:8px 10px;margin-top:6px">
-        ✓ Legt automatisch zwei Einträge an:<br>
-        <strong>Mo–Mi</strong> und <strong>Do–So</strong>
-      </div>
     </div>
-    <div>
+    <div id="fDayWrap">
       <span class="field-label">Tag / Bereich</span>
       <select class="field-select" id="fDay">
         <option value="">Beliebig</option>
@@ -800,6 +817,10 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
         <option value="low">🟢 Niedrig</option>
       </select>
     </div>
+  </div>
+  <!-- Hint shown below grid when 2x weekly selected -->
+  <div id="recurHint" style="display:none;font-size:12px;color:var(--sage-d);background:var(--sage-l);border-radius:var(--r);padding:10px 12px;margin-top:4px">
+    ✓ Legt automatisch <strong>zwei Einträge</strong> an: <strong>Mo–Mi</strong> und <strong>Do–So</strong>
   </div>
   <div class="modal-btns">
     <button class="modal-cancel" onclick="closeModal('taskModal')">Abbrechen</button>
@@ -943,6 +964,8 @@ const CAT_ICONS = {putz:'🧹', garten:'🌿', todo:'📋'};
 // ── Navigation ──
 let activeTab = 0;
 let weekOffset = 0;
+// ── Active user (Lucas or Isabell) ──
+let activeUser = localStorage.getItem('zuhause_user') || null;
 
 // ── Calendar ──
 const _nd = new Date();
@@ -1014,7 +1037,7 @@ function weekFree(offset = weekOffset) {
   }, {l:0, i:0});
 }
 function assignTask(assign, taskId) {
-  // Check week-level override first (use string key for consistency)
+  // Check week-level override first
   const wk = weekKey();
   const key = String(taskId);
   if (key && weekOverrides[wk] && weekOverrides[wk][key]) {
@@ -1023,8 +1046,16 @@ function assignTask(assign, taskId) {
   if (assign === 'lucas') return absences.has(wk) ? 'isabell' : 'lucas';
   if (assign === 'isabell') return 'isabell';
   if (assign === 'both') return 'both';
+  // Auto: compare remaining capacity after fixed tasks are accounted for
+  // Fixed tasks (garten etc.) are pre-allocated — subtract their count from the
+  // person with more free hours so auto-tasks balance out fairly
   const {l, i} = weekFree();
-  return l >= i ? 'lucas' : 'isabell';
+  const fixedLucas   = tasks.filter(t => t.assign === 'lucas'   && t.id !== taskId).length;
+  const fixedIsabell = tasks.filter(t => t.assign === 'isabell' && t.id !== taskId).length;
+  // Weighted score: free hours minus fixed task penalty (each task costs ~1h)
+  const scoreL = l - fixedLucas * 1.5;
+  const scoreI = i - fixedIsabell * 1.5;
+  return scoreL >= scoreI ? 'lucas' : 'isabell';
 }
 function bestDay(dates, person, dayRange) {
   const DAYS_IDX = {Mo:0,Di:1,Mi:2,Do:3,Fr:4,Sa:5,So:6};
@@ -1256,6 +1287,21 @@ function renderHeute(dates) {
         </div>
       </div>
     </div>`;
+
+  // Weekly summary banner (Fr-So)
+  const todayDow = new Date().getDay(); // 0=So,5=Fr,6=Sa
+  const isWeekend = (todayDow === 5 || todayDow === 6 || todayDow === 0) && weekOffset === 0;
+  if (isWeekend && doneCount > 0) {
+    const pct = Math.round(doneCount / allActive.length * 100);
+    const emoji = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪';
+    html += `<div style="margin:10px 16px 0;background:var(--gold-l);border:1px solid rgba(160,120,24,.2);border-radius:var(--rl);padding:12px 16px;display:flex;align-items:center;gap:12px">
+      <span style="font-size:26px">${emoji}</span>
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:14px;font-weight:700;color:var(--gold-d)">Wochenrückblick</div>
+        <div style="font-size:12px;color:var(--gold-d);margin-top:2px;opacity:.85">${doneCount} von ${allActive.length} Aufgaben erledigt · ${pct}%</div>
+      </div>
+    </div>`;
+  }
 
   // Day strip
   html += `<div class="day-strip">`;
@@ -1644,11 +1690,12 @@ function renderKalender() {
             </div>
           </div>
           <div class="mgmt-actions">
-            <button class="mgmt-btn mgmt-btn-edit" onclick="mgmtEdit(${t.id})">✏️</button>
+            <button class="mgmt-btn mgmt-btn-edit" onclick="mgmtEdit(${t.id})" title="Bearbeiten">✏️</button>
             ${isPaused
-              ? `<button class="mgmt-btn mgmt-btn-play" onclick="mgmtTogglePause(${t.id}, true)">▶ Aktiv</button>`
-              : `<button class="mgmt-btn mgmt-btn-pause" onclick="mgmtTogglePause(${t.id}, false)">⏸ Pause</button>`
+              ? `<button class="mgmt-btn mgmt-btn-play" onclick="mgmtTogglePause(${t.id}, true)" title="Aktivieren">▶</button>`
+              : `<button class="mgmt-btn mgmt-btn-pause" onclick="mgmtTogglePause(${t.id}, false)" title="Pausieren">⏸</button>`
             }
+            <button class="mgmt-btn mgmt-btn-del" onclick="mgmtDelete(${t.id}, '${t.name.replace(/'/g,"\'")}')" title="Löschen">🗑</button>
           </div>
         </div>`;
     });
@@ -1668,7 +1715,7 @@ async function toggleTask(id) {
   // Optimistic UI
   if (!comps[wk]) comps[wk] = {};
   if (wasDone) delete comps[wk][id];
-  else comps[wk][id] = {task_id:id, week_key:wk, done_by:'lucas', id:'opt'};
+  else comps[wk][id] = {task_id:id, week_key:wk, done_by: activeUser||'lucas', id:'opt'};
   // Animate checkbox
   const cb = document.getElementById(`cb-${id}`);
   const tn = document.getElementById(`tn-${id}`);
@@ -1682,7 +1729,7 @@ async function toggleTask(id) {
     await SB.from('task_completions').delete().match({task_id:id, week_key:wk});
     if (comps[wk]) delete comps[wk][id];
   } else {
-    const {data} = await SB.from('task_completions').insert({task_id:id, week_key:wk, done_by:'lucas'}).select().single();
+    const {data} = await SB.from('task_completions').insert({task_id:id, week_key:wk, done_by: activeUser||'lucas'}).select().single();
     if (!comps[wk]) comps[wk] = {};
     if (data) comps[wk][id] = data;
   }
@@ -1702,17 +1749,13 @@ async function saveFairness(wk) {
 
 let taskModalCat = 'putz';
 function onRecurChange(val) {
-  const hint = document.getElementById('recurHint');
-  const dayWrap = document.getElementById('fDay').closest('div');
-  if (val === '2xweekly') {
-    hint.style.display = 'block';
-    dayWrap.style.opacity = '.4';
-    dayWrap.style.pointerEvents = 'none';
-  } else {
-    hint.style.display = 'none';
-    dayWrap.style.opacity = '1';
-    dayWrap.style.pointerEvents = '';
-  }
+  const hint   = document.getElementById('recurHint');
+  const dayWrap = document.getElementById('fDayWrap');
+  if (!hint || !dayWrap) return;
+  const is2x = val === '2xweekly';
+  hint.style.display        = is2x ? 'block' : 'none';
+  dayWrap.style.opacity     = is2x ? '.4' : '1';
+  dayWrap.style.pointerEvents = is2x ? 'none' : '';
 }
 
 function openTaskModal(cat) {
@@ -1792,7 +1835,7 @@ async function qaAdd() {
   const inp = document.getElementById('qaInput');
   const name = inp.value.trim();
   if (!name) return;
-  const {data} = await SB.from('groceries').insert({name, cat:'Sonstiges', done:false, added_by:'lucas'}).select().single();
+  const {data} = await SB.from('groceries').insert({name, cat:'Sonstiges', done:false, added_by: activeUser || 'lucas'}).select().single();
   if (data) groceries.push(data);
   inp.value = '';
   if (activeTab === 3) render();
@@ -2148,15 +2191,58 @@ function mgmtEdit(taskId) {
   document.getElementById('fDay').value = task.day || '';
   document.getElementById('fPrio').value = task.prio || 'med';
   document.getElementById('taskModalTitle').textContent = '✏️ Aufgabe bearbeiten';
+  onRecurChange(task.recur);
   openModal('taskModal');
   setTimeout(() => document.getElementById('fName').focus(), 120);
+}
+
+async function mgmtDelete(taskId, taskName) {
+  if (!confirm(`"${taskName}" wirklich löschen?`)) return;
+  await SB.from('tasks').update({active: false}).eq('id', taskId);
+  allTasksRaw = allTasksRaw.filter(t => t.id !== taskId);
+  tasks = allTasksRaw.filter(row => row.active !== false);
+  render();
 }
 
 // Close ctx on escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtx(); });
 
+function setUser(name) {
+  activeUser = name;
+  localStorage.setItem('zuhause_user', name);
+  document.getElementById('userModal').classList.remove('open');
+  // Update header to show who is logged in
+  updateUserBadge();
+}
+
+function updateUserBadge() {
+  const badge = document.getElementById('userBadge');
+  if (!badge) return;
+  if (activeUser === 'lucas') {
+    badge.textContent = 'L';
+    badge.style.background = 'var(--sage-l)';
+    badge.style.color = 'var(--sage-d)';
+  } else if (activeUser === 'isabell') {
+    badge.textContent = 'I';
+    badge.style.background = 'var(--lav-l)';
+    badge.style.color = 'var(--lav-d)';
+  }
+}
+
+function switchUser() {
+  // Allow switching user
+  document.getElementById('userModal').classList.add('open');
+}
+
 setSync('loading');
-loadAll().then(() => setupRealtime());
+loadAll().then(() => {
+  setupRealtime();
+  if (!activeUser) {
+    document.getElementById('userModal').classList.add('open');
+  } else {
+    updateUserBadge();
+  }
+});
 
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
