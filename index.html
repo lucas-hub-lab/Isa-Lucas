@@ -785,11 +785,11 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     <div>
       <span class="field-label">Rhythmus</span>
       <select class="field-select" id="fRecur" onchange="onRecurChange(this.value)">
-        <option value="weekly">1x wöchentlich</option>
-        <option value="2xweekly">2x wöchentlich</option>
-        <option value="biweekly">Alle 2 Wochen</option>
-        <option value="daily">Täglich</option>
-        <option value="once">Einmalig</option>
+        <option value="weekly">📅 1× pro Woche</option>
+        <option value="2xweekly">📅📅 2× pro Woche (Mo–Mi + Do–So)</option>
+        <option value="biweekly">📆 Alle 2 Wochen</option>
+        <option value="daily">☀️ Täglich</option>
+        <option value="once">1️⃣ Einmalig</option>
       </select>
     </div>
     <div id="fDayWrap">
@@ -1036,23 +1036,22 @@ function weekFree(offset = weekOffset) {
     return { l: acc.l + lucasFree(ds), i: acc.i + isabellFree(ds) };
   }, {l:0, i:0});
 }
-function assignTask(assign, taskId) {
-  // Check week-level override first
-  const wk = weekKey();
+function assignTask(assign, taskId, off = weekOffset) {
+  // Week-level override (temporary, single week only)
+  const wk = weekKey(off);
   const key = String(taskId);
   if (key && weekOverrides[wk] && weekOverrides[wk][key]) {
     return weekOverrides[wk][key];
   }
-  if (assign === 'lucas') return absences.has(wk) ? 'isabell' : 'lucas';
+  // Fixed assignments
+  if (assign === 'lucas')   return absences.has(wk) ? 'isabell' : 'lucas';
   if (assign === 'isabell') return 'isabell';
-  if (assign === 'both') return 'both';
-  // Auto: compare remaining capacity after fixed tasks are accounted for
-  // Fixed tasks (garten etc.) are pre-allocated — subtract their count from the
-  // person with more free hours so auto-tasks balance out fairly
-  const {l, i} = weekFree();
-  const fixedLucas   = tasks.filter(t => t.assign === 'lucas'   && t.id !== taskId).length;
-  const fixedIsabell = tasks.filter(t => t.assign === 'isabell' && t.id !== taskId).length;
-  // Weighted score: free hours minus fixed task penalty (each task costs ~1h)
+  if (assign === 'both')    return 'both';
+  // Auto: use weekly free hours for the correct week,
+  // subtract fixed-assigned tasks so they don't skew the balance
+  const {l, i} = weekFree(off);
+  const fixedLucas   = tasks.filter(t => t.assign === 'lucas'   && String(t.id) !== key && t.active !== false).length;
+  const fixedIsabell = tasks.filter(t => t.assign === 'isabell' && String(t.id) !== key && t.active !== false).length;
   const scoreL = l - fixedLucas * 1.5;
   const scoreI = i - fixedIsabell * 1.5;
   return scoreL >= scoreI ? 'lucas' : 'isabell';
@@ -1348,7 +1347,7 @@ function renderHeute(dates) {
     html += `<div class="sec-lbl">Noch offen <span class="sec-lbl-count">${open.length}</span></div>`;
     html += `<div class="card"><div class="card-body">`;
     open.slice(0, 8).forEach(t => {
-      const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
+      const a = assignTask(t.assign, t.id, weekOffset), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
       html += taskRowHTML(t, a, day);
     });
     if (open.length > 8) {
@@ -1361,7 +1360,7 @@ function renderHeute(dates) {
     html += `<div class="sec-lbl" style="color:var(--c4)">Erledigt <span class="sec-lbl-count">${done.length}</span></div>`;
     html += `<div class="card"><div class="card-body">`;
     done.forEach(t => {
-      const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
+      const a = assignTask(t.assign, t.id, weekOffset), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
       html += taskRowHTML(t, a, day);
     });
     html += `</div></div>`;
@@ -1435,14 +1434,14 @@ function renderTasks(cat, dates) {
 
   html += `<div class="card"><div class="card-body">`;
   open.forEach(t => {
-    const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
+    const a = assignTask(t.assign, t.id, weekOffset), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
     html += taskRowHTML(t, a, day);
   });
   if (done.length > 0 && open.length > 0) {
     html += `<div class="done-sep">Erledigt</div>`;
   }
   done.forEach(t => {
-    const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
+    const a = assignTask(t.assign, t.id, weekOffset), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
     html += taskRowHTML(t, a, day);
   });
   html += `</div></div>`;
@@ -1463,12 +1462,12 @@ function renderTasks(cat, dates) {
         </div>
         <div class="card"><div class="card-body">`;
       todosOpen.forEach(t => {
-        const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
+        const a = assignTask(t.assign, t.id, weekOffset), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
         html += taskRowHTML(t, a, day);
       });
       if (todosDone.length > 0 && todosOpen.length > 0) html += `<div class="done-sep">Erledigt</div>`;
       todosDone.forEach(t => {
-        const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
+        const a = assignTask(t.assign, t.id, weekOffset), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
         html += taskRowHTML(t, a, day);
       });
       html += `</div></div>`;
@@ -1530,8 +1529,8 @@ function renderKalender() {
 
   // Fairness rings
   const allT = tasks.filter(t => t.recur !== 'once');
-  const lT = allT.filter(t => assignTask(t.assign, t.id) === 'lucas');
-  const iT = allT.filter(t => assignTask(t.assign, t.id) === 'isabell');
+  const lT = allT.filter(t => assignTask(t.assign, t.id, weekOffset) === 'lucas');
+  const iT = allT.filter(t => assignTask(t.assign, t.id, weekOffset) === 'isabell');
   const lD = lT.filter(t => isDone(t.id)).length;
   const iD = iT.filter(t => isDone(t.id)).length;
   const lP = lT.length ? Math.round(lD / lT.length * 100) : 0;
@@ -1741,8 +1740,8 @@ async function saveFairness(wk) {
   const {l, i} = weekFree();
   await SB.from('fairness_log').upsert({
     week_key: wk,
-    lucas_done: wt.filter(t => assignTask(t.assign, t.id) === 'lucas' && isDone(t.id)).length,
-    isabell_done: wt.filter(t => assignTask(t.assign, t.id) === 'isabell' && isDone(t.id)).length,
+    lucas_done: wt.filter(t => assignTask(t.assign, t.id, weekOffset) === 'lucas' && isDone(t.id)).length,
+    isabell_done: wt.filter(t => assignTask(t.assign, t.id, weekOffset) === 'isabell' && isDone(t.id)).length,
     lucas_hours: l, isabell_hours: i
   }, {onConflict:'week_key'});
 }
@@ -1800,10 +1799,11 @@ async function saveTask() {
   const updates = {name, assign, recur, prio, day, fixed: assign!=='auto'&&assign!=='both'};
 
   if (taskId) {
-    // Edit existing
+    // Edit existing — reload from DB so all weeks see updated data
     await SB.from('tasks').update(updates).eq('id', taskId);
-    const rawIdx = allTasksRaw.findIndex(t => t.id === taskId);
-    if (rawIdx >= 0) allTasksRaw[rawIdx] = {...allTasksRaw[rawIdx], ...updates};
+    // Refresh local state from DB
+    const fresh = await SB.from('tasks').select('*').order('id');
+    allTasksRaw = fresh.data || allTasksRaw;
     tasks = allTasksRaw.filter(row => row.active !== false);
   } else {
     // Create new
@@ -2075,7 +2075,7 @@ function openCtx(taskId) {
   document.getElementById('ctxTaskName').textContent = task.name;
   const wk = weekKey();
   const hasOverride = weekOverrides[wk] && weekOverrides[wk][String(taskId)];
-  const cur = assignTask(task.assign, taskId);
+  const cur = assignTask(task.assign, taskId, weekOffset);
   // Always show both assign buttons — hide current assignee's button
   document.getElementById('ctxAssignLucas').style.display = cur === 'lucas' ? 'none' : 'flex';
   document.getElementById('ctxAssignIsabell').style.display = cur === 'isabell' ? 'none' : 'flex';
@@ -2173,9 +2173,8 @@ async function ctxDelete() {
 // ── Task Management (Organisation Tab) ──
 async function mgmtTogglePause(taskId, makeActive) {
   await SB.from('tasks').update({active: makeActive}).eq('id', taskId);
-  // Update local state
-  const raw = allTasksRaw.find(t => t.id === taskId);
-  if (raw) raw.active = makeActive;
+  const fresh = await SB.from('tasks').select('*').order('id');
+  allTasksRaw = fresh.data || allTasksRaw;
   tasks = allTasksRaw.filter(row => row.active !== false);
   render();
 }
