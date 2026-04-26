@@ -555,18 +555,18 @@ body{
 
 /* Bottom sheet context menu */
 .ctx-sheet{
-  position:fixed;bottom:0;left:0;right:0;z-index:300;
+  position:fixed;bottom:0;left:0;right:0;z-index:400;
   background:var(--c1);
   border-radius:24px 24px 0 0;
   border-top:1.5px solid var(--c2);
-  padding:0 0 calc(16px + var(--sab));
+  padding:0 0 calc(var(--nav-h) + var(--sab) + 8px);
   box-shadow:0 -8px 32px rgba(42,30,10,.15);
   transform:translateY(100%);
   transition:transform .25s cubic-bezier(.4,0,.2,1);
 }
 .ctx-sheet.open{transform:translateY(0)}
 .ctx-backdrop{
-  position:fixed;inset:0;z-index:299;
+  position:fixed;inset:0;z-index:399;
   background:rgba(42,30,10,.35);
   opacity:0;pointer-events:none;
   transition:opacity .22s;
@@ -763,21 +763,33 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     </div>
     <div>
       <span class="field-label">Rhythmus</span>
-      <select class="field-select" id="fRecur">
-        <option value="weekly">Wöchentl.</option>
-        <option value="biweekly">2-wöchentl.</option>
+      <select class="field-select" id="fRecur" onchange="onRecurChange(this.value)">
+        <option value="weekly">1x wöchentlich</option>
+        <option value="2xweekly">2x wöchentlich (Mo–Mi + Do–So)</option>
+        <option value="biweekly">Alle 2 Wochen</option>
         <option value="daily">Täglich</option>
         <option value="once">Einmalig</option>
       </select>
+      <div id="recurHint" style="display:none;font-size:12px;color:var(--sage-d);background:var(--sage-l);border-radius:var(--r);padding:8px 10px;margin-top:6px">
+        ✓ Legt automatisch zwei Einträge an:<br>
+        <strong>Mo–Mi</strong> und <strong>Do–So</strong>
+      </div>
     </div>
     <div>
-      <span class="field-label">Tag</span>
+      <span class="field-label">Tag / Bereich</span>
       <select class="field-select" id="fDay">
         <option value="">Beliebig</option>
-        <option value="Mo">Mo</option><option value="Di">Di</option>
-        <option value="Mi">Mi</option><option value="Do">Do</option>
-        <option value="Fr">Fr</option><option value="Sa">Sa</option>
+        <option value="Mo">Mo</option>
+        <option value="Di">Di</option>
+        <option value="Mi">Mi</option>
+        <option value="Do">Do</option>
+        <option value="Fr">Fr</option>
+        <option value="Sa">Sa</option>
         <option value="So">So</option>
+        <option value="Mo-Mi">Mo–Mi</option>
+        <option value="Do-So">Do–So</option>
+        <option value="Mo-Fr">Mo–Fr (Wochentage)</option>
+        <option value="Sa-So">Sa–So (Wochenende)</option>
       </select>
     </div>
     <div>
@@ -1014,9 +1026,24 @@ function assignTask(assign, taskId) {
   const {l, i} = weekFree();
   return l >= i ? 'lucas' : 'isabell';
 }
-function bestDay(dates, person) {
+function bestDay(dates, person, dayRange) {
+  const DAYS_IDX = {Mo:0,Di:1,Mi:2,Do:3,Fr:4,Sa:5,So:6};
+  let allowedIdx = null;
+  // Parse range like "Mo-Mi" or "Sa-So"
+  if (dayRange && dayRange.includes('-')) {
+    const [from, to] = dayRange.split('-');
+    const fi = DAYS_IDX[from], ti = DAYS_IDX[to];
+    if (fi !== undefined && ti !== undefined) {
+      allowedIdx = [];
+      if (fi <= ti) { for(let i=fi;i<=ti;i++) allowedIdx.push(i); }
+      else { for(let i=fi;i<7;i++) allowedIdx.push(i); for(let i=0;i<=ti;i++) allowedIdx.push(i); }
+    }
+  } else if (dayRange && DAYS_IDX[dayRange] !== undefined) {
+    return dayRange; // single fixed day
+  }
   let best = 'Sa', bestH = -1;
   dates.forEach((d, i) => {
+    if (allowedIdx && !allowedIdx.includes(i)) return;
     const h = person === 'lucas' ? lucasFree(fmtDate(d)) : isabellFree(fmtDate(d));
     if (h > bestH) { bestH = h; best = DAYS[i]; }
   });
@@ -1168,7 +1195,7 @@ function render() {
 function taskRowHTML(task, assigned, day) {
   const done = isDone(task.id);
   const pDot = task.prio === 'high' ? 'dot-h' : task.prio === 'low' ? 'dot-l' : 'dot-m';
-  const rText = {daily:'tägl.', biweekly:'2-wöch.', once:'einm.', weekly:'wöch.'}[task.recur] || 'wöch.';
+  const rText = {daily:'tägl.', biweekly:'2-wöch.', once:'einm.', weekly:'wöch.', '2xweekly':'2x/Wo'}[task.recur] || 'wöch.';
   const rTag = task.fixed ? 'tag-f' : task.recur === 'once' ? 'tag-o' : 'tag-r';
   const muell = task.muell ? ` <span style="color:var(--c4);font-size:11px">· Do Abend</span>` : '';
   const whoCls = assigned === 'lucas' ? 'who-l' : assigned === 'isabell' ? 'who-i' : 'who-b';
@@ -1187,7 +1214,7 @@ function taskRowHTML(task, assigned, day) {
         <div class="task-meta">
           <span class="dot ${pDot}"></span>
           <span class="tag ${rTag}">${rText}</span>
-          ${task.day ? `<span style="font-size:11px;color:var(--c4)">${task.day}</span>` : ''}
+          ${task.day ? `<span style="font-size:11px;color:var(--c4)">${task.day.includes('-') ? '📅 '+task.day : task.day}</span>` : ''}
           ${ovrBadge}
         </div>
       </div>
@@ -1275,7 +1302,7 @@ function renderHeute(dates) {
     html += `<div class="sec-lbl">Noch offen <span class="sec-lbl-count">${open.length}</span></div>`;
     html += `<div class="card"><div class="card-body">`;
     open.slice(0, 8).forEach(t => {
-      const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+      const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
       html += taskRowHTML(t, a, day);
     });
     if (open.length > 8) {
@@ -1288,7 +1315,7 @@ function renderHeute(dates) {
     html += `<div class="sec-lbl" style="color:var(--c4)">Erledigt <span class="sec-lbl-count">${done.length}</span></div>`;
     html += `<div class="card"><div class="card-body">`;
     done.forEach(t => {
-      const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+      const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
       html += taskRowHTML(t, a, day);
     });
     html += `</div></div>`;
@@ -1362,14 +1389,14 @@ function renderTasks(cat, dates) {
 
   html += `<div class="card"><div class="card-body">`;
   open.forEach(t => {
-    const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+    const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
     html += taskRowHTML(t, a, day);
   });
   if (done.length > 0 && open.length > 0) {
     html += `<div class="done-sep">Erledigt</div>`;
   }
   done.forEach(t => {
-    const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+    const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
     html += taskRowHTML(t, a, day);
   });
   html += `</div></div>`;
@@ -1390,12 +1417,12 @@ function renderTasks(cat, dates) {
         </div>
         <div class="card"><div class="card-body">`;
       todosOpen.forEach(t => {
-        const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+        const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
         html += taskRowHTML(t, a, day);
       });
       if (todosDone.length > 0 && todosOpen.length > 0) html += `<div class="done-sep">Erledigt</div>`;
       todosDone.forEach(t => {
-        const a = assignTask(t.assign, t.id), day = t.day || bestDay(dates, a === 'both' ? 'lucas' : a);
+        const a = assignTask(t.assign, t.id), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
         html += taskRowHTML(t, a, day);
       });
       html += `</div></div>`;
@@ -1602,7 +1629,7 @@ function renderKalender() {
         <div class="card"><div class="card-body">`;
 
     allCatTasks.forEach(t => {
-      const rText = {daily:'tägl.', biweekly:'2-wöch.', once:'einm.', weekly:'wöch.'}[t.recur] || 'wöch.';
+      const rText = {daily:'tägl.', biweekly:'2-wöch.', once:'einm.', weekly:'wöch.', '2xweekly':'2x/Wo'}[t.recur] || 'wöch.';
       const assignTxt = t.assign === 'auto' ? 'Auto' : t.assign === 'both' ? 'Beide' : t.assign === 'lucas' ? 'Lucas' : 'Isabell';
       const isPaused = t.active === false;
       html += `
@@ -1674,6 +1701,20 @@ async function saveFairness(wk) {
 }
 
 let taskModalCat = 'putz';
+function onRecurChange(val) {
+  const hint = document.getElementById('recurHint');
+  const dayWrap = document.getElementById('fDay').closest('div');
+  if (val === '2xweekly') {
+    hint.style.display = 'block';
+    dayWrap.style.opacity = '.4';
+    dayWrap.style.pointerEvents = 'none';
+  } else {
+    hint.style.display = 'none';
+    dayWrap.style.opacity = '1';
+    dayWrap.style.pointerEvents = '';
+  }
+}
+
 function openTaskModal(cat) {
   editingTaskId = null;
   taskModalCat = cat || (activeTab === 2 ? 'garten' : 'putz');
@@ -1683,6 +1724,8 @@ function openTaskModal(cat) {
   document.getElementById('fDay').value = '';
   document.getElementById('fPrio').value = 'med';
   document.getElementById('taskModalTitle').textContent = taskModalCat === 'garten' ? '🌿 Gartenaufgabe' : taskModalCat === 'putz' ? '🧹 Putzaufgabe' : '📋 To-Do';
+  // Reset hint
+  onRecurChange('weekly');
   openModal('taskModal');
   setTimeout(() => document.getElementById('fName').focus(), 120);
 }
@@ -1690,16 +1733,29 @@ function openTaskModal(cat) {
 async function saveTask() {
   const name = document.getElementById('fName').value.trim();
   if (!name) return;
-  const taskId = editingTaskId; // capture BEFORE closeModal nulls it
+  const taskId = editingTaskId;
   const assign = document.getElementById('fAssign').value;
-  const updates = {
-    name, assign,
-    recur: document.getElementById('fRecur').value,
-    prio:  document.getElementById('fPrio').value,
-    day:   document.getElementById('fDay').value,
-    fixed: assign !== 'auto' && assign !== 'both',
-  };
+  const recur  = document.getElementById('fRecur').value;
+  const prio   = document.getElementById('fPrio').value;
+  const day    = document.getElementById('fDay').value;
   closeModal('taskModal');
+
+  // 2x wöchentlich → automatisch zwei Einträge anlegen (Mo-Mi + Do-So)
+  if (!taskId && recur === '2xweekly') {
+    const base = {name, assign, recur:'weekly', prio, fixed: assign!=='auto'&&assign!=='both', active:true, cat:taskModalCat};
+    const [r1, r2] = await Promise.all([
+      SB.from('tasks').insert({...base, day:'Mo-Mi'}).select().single(),
+      SB.from('tasks').insert({...base, day:'Do-So'}).select().single(),
+    ]);
+    if (r1.data) { allTasksRaw.push(r1.data); tasks.push(r1.data); }
+    if (r2.data) { allTasksRaw.push(r2.data); tasks.push(r2.data); }
+    editingTaskId = null;
+    render();
+    return;
+  }
+
+  const updates = {name, assign, recur, prio, day, fixed: assign!=='auto'&&assign!=='both'};
+
   if (taskId) {
     // Edit existing
     await SB.from('tasks').update(updates).eq('id', taskId);
