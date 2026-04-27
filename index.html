@@ -1178,14 +1178,38 @@ function setupRealtime() {
         render();
       });
     })
-    .on('postgres_changes', {event:'*', schema:'public', table:'tasks'}, () => {
-      SB.from('tasks').select('*').order('id').then(r => {
-        allTasksRaw = r.data || [];
-        tasks = allTasksRaw.filter(row => row.active !== false);
-        render();
-      });
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'tasks'}, (payload) => {
+      if (!allTasksRaw.find(t => t.id === payload.new.id)) allTasksRaw.push(payload.new);
+      tasks = allTasksRaw.filter(row => row.active !== false);
+      render();
     })
-    .on('postgres_changes', {event:'*', schema:'public', table:'task_overrides'}, () => {
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'tasks'}, (payload) => {
+      const idx = allTasksRaw.findIndex(t => t.id === payload.new.id);
+      if (idx >= 0) allTasksRaw[idx] = payload.new; else allTasksRaw.push(payload.new);
+      tasks = allTasksRaw.filter(row => row.active !== false);
+      render();
+    })
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'task_overrides'}, (payload) => {
+      const x = payload.new;
+      if (x.action === 'assign') {
+        if (!weekOverrides[x.week_key]) weekOverrides[x.week_key] = {};
+        weekOverrides[x.week_key][String(x.task_id)] = x.value;
+      } else if (x.action === 'defer') {
+        deferredTasks[String(x.task_id)] = x.value;
+      }
+      render();
+    })
+    .on('postgres_changes', {event:'UPDATE', schema:'public', table:'task_overrides'}, (payload) => {
+      const x = payload.new;
+      if (x.action === 'assign') {
+        if (!weekOverrides[x.week_key]) weekOverrides[x.week_key] = {};
+        weekOverrides[x.week_key][String(x.task_id)] = x.value;
+      } else if (x.action === 'defer') {
+        deferredTasks[String(x.task_id)] = x.value;
+      }
+      render();
+    })
+    .on('postgres_changes', {event:'DELETE', schema:'public', table:'task_overrides'}, () => {
       SB.from('task_overrides').select('*').then(r => {
         weekOverrides = {}; deferredTasks = {};
         (r.data || []).forEach(x => {
