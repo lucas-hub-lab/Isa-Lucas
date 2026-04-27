@@ -1178,7 +1178,31 @@ function setupRealtime() {
         render();
       });
     })
-    .subscribe(s => { if (s === 'SUBSCRIBED') setSync('ok'); });
+    .on('postgres_changes', {event:'*', schema:'public', table:'tasks'}, () => {
+      SB.from('tasks').select('*').order('id').then(r => {
+        allTasksRaw = r.data || [];
+        tasks = allTasksRaw.filter(row => row.active !== false);
+        render();
+      });
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'task_overrides'}, () => {
+      SB.from('task_overrides').select('*').then(r => {
+        weekOverrides = {}; deferredTasks = {};
+        (r.data || []).forEach(x => {
+          if (x.action === 'assign') {
+            if (!weekOverrides[x.week_key]) weekOverrides[x.week_key] = {};
+            weekOverrides[x.week_key][String(x.task_id)] = x.value;
+          } else if (x.action === 'defer') {
+            deferredTasks[String(x.task_id)] = x.value;
+          }
+        });
+        render();
+      });
+    })
+    .subscribe(s => {
+      if (s === 'SUBSCRIBED') setSync('ok');
+      else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT' || s === 'CLOSED') setSync('error');
+    });
 }
 
 /* ══════════════════════════════════════════
@@ -1800,11 +1824,24 @@ async function saveTask() {
 
   if (taskId) {
     // Edit existing — reload from DB so all weeks see updated data
-    await SB.from('tasks').update(updates).eq('id', taskId);
-    // Refresh local state from DB
-    const fresh = await SB.from('tasks').select('*').order('id');
+    const { error: updErr } = await SB.from('tasks').update(updates).eq('id', taskId);
+    if (updErr) { console.error('Task-Update fehlgeschlagen:', updErr); render(); return; }
+    // Refresh tasks + overrides from DB
+    const [fresh, ovRes] = await Promise.all([
+      SB.from('tasks').select('*').order('id'),
+      SB.from('task_overrides').select('*'),
+    ]);
     allTasksRaw = fresh.data || allTasksRaw;
     tasks = allTasksRaw.filter(row => row.active !== false);
+    weekOverrides = {}; deferredTasks = {};
+    (ovRes.data || []).forEach(x => {
+      if (x.action === 'assign') {
+        if (!weekOverrides[x.week_key]) weekOverrides[x.week_key] = {};
+        weekOverrides[x.week_key][String(x.task_id)] = x.value;
+      } else if (x.action === 'defer') {
+        deferredTasks[String(x.task_id)] = x.value;
+      }
+    });
   } else {
     // Create new
     const {data} = await SB.from('tasks').insert({
@@ -2097,11 +2134,12 @@ async function ctxResetAssign() {
   closeCtx();
   const wk = weekKey();
   if (weekOverrides[wk]) delete weekOverrides[wk][String(taskId)];
-  await SB.from('task_overrides').delete()
+  render();
+  const { error } = await SB.from('task_overrides').delete()
     .eq('task_id', taskId)
     .eq('week_key', wk)
     .eq('action', 'assign');
-  render();
+  if (error) console.error('Reset-Zuweisung fehlgeschlagen:', error);
 }
 
 async function ctxDefer() {
@@ -2110,12 +2148,20 @@ async function ctxDefer() {
   closeCtx();
   const wk = weekKey();
   const nextWk = weekKey(weekOffset + 1);
+  // Optimistic update
   deferredTasks[String(taskId)] = nextWk;
-  await SB.from('task_overrides').upsert(
-    {task_id: taskId, week_key: wk, action: 'defer', value: nextWk},
-    {onConflict: 'task_id,week_key,action'}
-  );
   render();
+  // Delete existing defer entry then insert fresh
+  await SB.from('task_overrides').delete()
+    .eq('task_id', taskId).eq('week_key', wk).eq('action', 'defer');
+  const { error } = await SB.from('task_overrides').insert(
+    {task_id: taskId, week_key: wk, action: 'defer', value: nextWk}
+  );
+  if (error) {
+    console.error('Verschieben fehlgeschlagen:', error);
+    delete deferredTasks[String(taskId)];
+    render();
+  }
 }
 
 async function ctxAssign(person) {
@@ -2123,20 +2169,22 @@ async function ctxAssign(person) {
   const taskId = ctxTaskId; // capture BEFORE closeCtx nulls it
   closeCtx();
   const wk = weekKey();
+  // Optimistic update
   if (!weekOverrides[wk]) weekOverrides[wk] = {};
   weekOverrides[wk][String(taskId)] = person;
-  const { error } = await SB.from('task_overrides').upsert(
-    {task_id: taskId, week_key: wk, action: 'assign', value: person},
-    {onConflict: 'task_id,week_key,action'}
+  render();
+  // Delete existing then insert — avoids upsert unique-constraint issues
+  await SB.from('task_overrides').delete()
+    .eq('task_id', taskId).eq('week_key', wk).eq('action', 'assign');
+  const { error } = await SB.from('task_overrides').insert(
+    {task_id: taskId, week_key: wk, action: 'assign', value: person}
   );
   if (error) {
-    await SB.from('task_overrides').delete()
-      .eq('task_id', taskId).eq('week_key', wk).eq('action', 'assign');
-    await SB.from('task_overrides').insert(
-      {task_id: taskId, week_key: wk, action: 'assign', value: person}
-    );
+    console.error('Zuweisung fehlgeschlagen:', error);
+    // Rollback override
+    if (weekOverrides[wk]) delete weekOverrides[wk][String(taskId)];
+    render();
   }
-  render();
 }
 
 function ctxEdit() {
@@ -2161,18 +2209,28 @@ async function ctxDelete() {
   const taskId = ctxTaskId; // capture BEFORE closeCtx nulls it
   const task = allTasksRaw.find(t => String(t.id) === String(taskId));
   if (!task) return;
-  // Confirm before permanent delete
   if (!confirm(`"${task.name}" wirklich löschen?`)) return;
   closeCtx();
+  // Optimistic update
   tasks = tasks.filter(t => String(t.id) !== String(taskId));
   allTasksRaw = allTasksRaw.filter(t => String(t.id) !== String(taskId));
-  await SB.from('tasks').update({active: false}).eq('id', taskId);
   render();
+  const { error } = await SB.from('tasks').update({active: false}).eq('id', taskId);
+  if (error) {
+    console.error('Löschen fehlgeschlagen:', error);
+    // Rollback: reload from DB
+    const fresh = await SB.from('tasks').select('*').order('id');
+    allTasksRaw = fresh.data || allTasksRaw;
+    tasks = allTasksRaw.filter(row => row.active !== false);
+    render();
+    alert('Löschen fehlgeschlagen. Bitte nochmal versuchen.');
+  }
 }
 
 // ── Task Management (Organisation Tab) ──
 async function mgmtTogglePause(taskId, makeActive) {
-  await SB.from('tasks').update({active: makeActive}).eq('id', taskId);
+  const { error } = await SB.from('tasks').update({active: makeActive}).eq('id', taskId);
+  if (error) { console.error('Pause/Aktivieren fehlgeschlagen:', error); return; }
   const fresh = await SB.from('tasks').select('*').order('id');
   allTasksRaw = fresh.data || allTasksRaw;
   tasks = allTasksRaw.filter(row => row.active !== false);
@@ -2197,10 +2255,19 @@ function mgmtEdit(taskId) {
 
 async function mgmtDelete(taskId, taskName) {
   if (!confirm(`"${taskName}" wirklich löschen?`)) return;
-  await SB.from('tasks').update({active: false}).eq('id', taskId);
-  allTasksRaw = allTasksRaw.filter(t => t.id !== taskId);
+  // Optimistic update
+  allTasksRaw = allTasksRaw.filter(t => String(t.id) !== String(taskId));
   tasks = allTasksRaw.filter(row => row.active !== false);
   render();
+  const { error } = await SB.from('tasks').update({active: false}).eq('id', taskId);
+  if (error) {
+    console.error('Löschen fehlgeschlagen:', error);
+    const fresh = await SB.from('tasks').select('*').order('id');
+    allTasksRaw = fresh.data || allTasksRaw;
+    tasks = allTasksRaw.filter(row => row.active !== false);
+    render();
+    alert('Löschen fehlgeschlagen. Bitte nochmal versuchen.');
+  }
 }
 
 // Close ctx on escape
