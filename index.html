@@ -1185,7 +1185,12 @@ function setupRealtime() {
     })
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'tasks'}, (payload) => {
       const idx = allTasksRaw.findIndex(t => t.id === payload.new.id);
-      if (idx >= 0) allTasksRaw[idx] = payload.new; else allTasksRaw.push(payload.new);
+      if (idx >= 0) {
+        allTasksRaw[idx] = payload.new;
+      } else if (payload.new.active !== false) {
+        // Only add back if active — never resurrect a soft-deleted task
+        allTasksRaw.push(payload.new);
+      }
       tasks = allTasksRaw.filter(row => row.active !== false);
       render();
     })
@@ -1282,6 +1287,17 @@ function taskRowHTML(task, assigned, day) {
   const wk = weekKey();
   const ovr = weekOverrides[wk] && weekOverrides[wk][task.id];
   const ovrBadge = ovr ? `<span style="font-size:9px;color:var(--lav-d);font-weight:700;margin-left:2px">↷ ${ovr}</span>` : '';
+  // "Done by" note — shown when someone completes another person's task
+  let doneByNote = '';
+  if (done && assigned !== 'both') {
+    const comp = comps[wk] && comps[wk][task.id];
+    const doneBy = comp && comp.done_by;
+    if (doneBy && doneBy !== assigned) {
+      const doneByName = doneBy === 'lucas' ? 'Lucas' : 'Isabell';
+      const noteColor = doneBy === 'lucas' ? 'var(--sage-d)' : 'var(--lav-d)';
+      doneByNote = `<span style="font-size:10px;color:${noteColor};font-weight:600;margin-left:2px">· von ${doneByName}</span>`;
+    }
+  }
   return `
     <div class="task-row" onclick="toggleTask(${task.id})">
       <div class="cb-wrap">
@@ -1294,6 +1310,7 @@ function taskRowHTML(task, assigned, day) {
           <span class="tag ${rTag}">${rText}</span>
           ${task.day ? `<span style="font-size:11px;color:var(--c4)">${task.day.includes('-') ? '📅 '+task.day : task.day}</span>` : ''}
           ${ovrBadge}
+          ${doneByNote}
         </div>
       </div>
       <span class="who-badge ${whoCls}">${whoTxt}</span>
@@ -2239,15 +2256,15 @@ async function ctxDelete() {
   tasks = tasks.filter(t => String(t.id) !== String(taskId));
   allTasksRaw = allTasksRaw.filter(t => String(t.id) !== String(taskId));
   render();
-  const { error } = await SB.from('tasks').update({active: false}).eq('id', taskId);
-  if (error) {
-    console.error('Löschen fehlgeschlagen:', error);
-    // Rollback: reload from DB
+  const { data: updated, error } = await SB.from('tasks')
+    .update({active: false}).eq('id', taskId).select('id');
+  if (error || !updated || updated.length === 0) {
+    console.error('Löschen fehlgeschlagen (error oder 0 Zeilen):', error);
     const fresh = await SB.from('tasks').select('*').order('id');
     allTasksRaw = fresh.data || allTasksRaw;
     tasks = allTasksRaw.filter(row => row.active !== false);
     render();
-    alert('Löschen fehlgeschlagen. Bitte nochmal versuchen.');
+    alert('Löschen fehlgeschlagen — möglicherweise fehlt eine Datenbankberechtigung.');
   }
 }
 
@@ -2283,14 +2300,15 @@ async function mgmtDelete(taskId, taskName) {
   allTasksRaw = allTasksRaw.filter(t => String(t.id) !== String(taskId));
   tasks = allTasksRaw.filter(row => row.active !== false);
   render();
-  const { error } = await SB.from('tasks').update({active: false}).eq('id', taskId);
-  if (error) {
-    console.error('Löschen fehlgeschlagen:', error);
+  const { data: updated, error } = await SB.from('tasks')
+    .update({active: false}).eq('id', taskId).select('id');
+  if (error || !updated || updated.length === 0) {
+    console.error('Löschen fehlgeschlagen (error oder 0 Zeilen):', error);
     const fresh = await SB.from('tasks').select('*').order('id');
     allTasksRaw = fresh.data || allTasksRaw;
     tasks = allTasksRaw.filter(row => row.active !== false);
     render();
-    alert('Löschen fehlgeschlagen. Bitte nochmal versuchen.');
+    alert('Löschen fehlgeschlagen — möglicherweise fehlt eine Datenbankberechtigung.');
   }
 }
 
