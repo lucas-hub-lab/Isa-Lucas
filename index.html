@@ -1185,12 +1185,20 @@ function setupRealtime() {
     })
     .on('postgres_changes', {event:'UPDATE', schema:'public', table:'tasks'}, (payload) => {
       const idx = allTasksRaw.findIndex(t => t.id === payload.new.id);
-      if (idx >= 0) {
-        allTasksRaw[idx] = payload.new;
-      } else if (payload.new.active !== false) {
-        // Only add back if active — never resurrect a soft-deleted task
-        allTasksRaw.push(payload.new);
-      }
+      if (idx >= 0) allTasksRaw[idx] = payload.new;
+      else if (payload.new.active !== false) allTasksRaw.push(payload.new);
+      tasks = allTasksRaw.filter(row => row.active !== false);
+      render();
+    })
+    .on('postgres_changes', {event:'DELETE', schema:'public', table:'tasks'}, (payload) => {
+      const id = payload.old.id;
+      allTasksRaw = allTasksRaw.filter(t => t.id !== id);
+      tasks = allTasksRaw.filter(row => row.active !== false);
+      render();
+    })
+    .on('postgres_changes', {event:'DELETE', schema:'public', table:'tasks'}, (payload) => {
+      const id = payload.old.id;
+      allTasksRaw = allTasksRaw.filter(t => t.id !== id);
       tasks = allTasksRaw.filter(row => row.active !== false);
       render();
     })
@@ -2252,19 +2260,19 @@ async function ctxDelete() {
   if (!task) return;
   if (!confirm(`"${task.name}" wirklich löschen?`)) return;
   closeCtx();
-  // Optimistic update
+  // Optimistic remove
   tasks = tasks.filter(t => String(t.id) !== String(taskId));
   allTasksRaw = allTasksRaw.filter(t => String(t.id) !== String(taskId));
   render();
-  const { data: updated, error } = await SB.from('tasks')
-    .update({active: false}).eq('id', taskId).select('id');
-  if (error || !updated || updated.length === 0) {
-    console.error('Löschen fehlgeschlagen (error oder 0 Zeilen):', error);
+  // Hard DELETE — distinguishes "deleted" from "paused" (active:false)
+  const { data: deleted, error } = await SB.from('tasks').delete().eq('id', taskId).select('id');
+  if (error || !deleted || deleted.length === 0) {
+    console.error('Löschen fehlgeschlagen:', error);
     const fresh = await SB.from('tasks').select('*').order('id');
     allTasksRaw = fresh.data || allTasksRaw;
     tasks = allTasksRaw.filter(row => row.active !== false);
     render();
-    alert('Löschen fehlgeschlagen — möglicherweise fehlt eine Datenbankberechtigung.');
+    alert('Löschen fehlgeschlagen.');
   }
 }
 
@@ -2296,19 +2304,19 @@ function mgmtEdit(taskId) {
 
 async function mgmtDelete(taskId, taskName) {
   if (!confirm(`"${taskName}" wirklich löschen?`)) return;
-  // Optimistic update
+  // Optimistic remove
   allTasksRaw = allTasksRaw.filter(t => String(t.id) !== String(taskId));
   tasks = allTasksRaw.filter(row => row.active !== false);
   render();
-  const { data: updated, error } = await SB.from('tasks')
-    .update({active: false}).eq('id', taskId).select('id');
-  if (error || !updated || updated.length === 0) {
-    console.error('Löschen fehlgeschlagen (error oder 0 Zeilen):', error);
+  // Hard DELETE — distinguishes "deleted" from "paused" (active:false)
+  const { data: deleted, error } = await SB.from('tasks').delete().eq('id', taskId).select('id');
+  if (error || !deleted || deleted.length === 0) {
+    console.error('Löschen fehlgeschlagen:', error);
     const fresh = await SB.from('tasks').select('*').order('id');
     allTasksRaw = fresh.data || allTasksRaw;
     tasks = allTasksRaw.filter(row => row.active !== false);
     render();
-    alert('Löschen fehlgeschlagen — möglicherweise fehlt eine Datenbankberechtigung.');
+    alert('Löschen fehlgeschlagen.');
   }
 }
 
