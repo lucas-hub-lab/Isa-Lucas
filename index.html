@@ -404,6 +404,7 @@ body{
   backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
 }
 .modal-bg.open{display:flex}
+#eventModal{z-index:250}
 .modal-sheet{
   background:var(--c1);
   border-radius:24px 24px 0 0;
@@ -1176,15 +1177,19 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
       </select>
     </div>
     <div>
-      <span class="field-label">Datum</span>
+      <span class="field-label">Von Datum</span>
       <input class="field-input" id="evDate" type="date">
     </div>
     <div>
-      <span class="field-label">Von (optional)</span>
+      <span class="field-label">Bis Datum <span style="font-weight:400;color:var(--c4)">(optional)</span></span>
+      <input class="field-input" id="evEndDate" type="date">
+    </div>
+    <div>
+      <span class="field-label">Uhrzeit von</span>
       <input class="field-input" id="evStart" type="time">
     </div>
     <div>
-      <span class="field-label">Bis (optional)</span>
+      <span class="field-label">Uhrzeit bis</span>
       <input class="field-input" id="evEnd" type="time">
     </div>
     <div class="span2">
@@ -1607,6 +1612,11 @@ function calToday() {
   calYear = nd.getFullYear(); calMonth = nd.getMonth() + 1;
   selectedCalDay = null;
   render();
+  requestAnimationFrame(() => {
+    document.getElementById('content').scrollTop = 0;
+    const todayCell = document.querySelector('.kal-today');
+    if (todayCell) todayCell.scrollIntoView({block:'center', behavior:'smooth'});
+  });
 }
 
 /* ══════════════════════════════════════════
@@ -2061,7 +2071,7 @@ function renderKalender() {
     const isToday = ds === today;
     const isSelected = ds === selectedCalDay;
     // Events for this day (shift as bar + calendar events as bars)
-    const dayEvts = calendarEvents.filter(e => e.event_date === ds);
+    const dayEvts = calendarEvents.filter(e => e.event_date <= ds && (e.end_date || e.event_date) >= ds);
     const shiftLabel = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[sh] || '';
     let evtBars = `<div class="kal-evts">`;
     if (sh) evtBars += `<span class="cal-shift-bar cal-shift-${sh}">${sh} ${shiftLabel.slice(0,4)}</span>`;
@@ -2085,7 +2095,10 @@ function renderKalender() {
 
   // Monthly event list (upcoming or all in month)
   const monthStr = `${calYear}-${String(calMonth).padStart(2,'0')}`;
-  const monthEvts = calendarEvents.filter(e => e.event_date && e.event_date.startsWith(monthStr));
+  // Include events that start in this month OR span into this month
+  const monthStart = `${calYear}-${String(calMonth).padStart(2,'0')}-01`;
+  const monthEnd = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+  const monthEvts = calendarEvents.filter(e => e.event_date <= monthEnd && (e.end_date || e.event_date) >= monthStart);
   if (monthEvts.length > 0) {
     html += `<div style="padding:8px 14px 4px">
       <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px">Termine diesen Monat</div>
@@ -2096,7 +2109,9 @@ function renderKalender() {
       const barCls = e.person === 'lucas' ? 'evt-bar-l' : e.person === 'isabell' ? 'evt-bar-i' : 'evt-bar-b';
       const personTxt = e.person === 'lucas' ? 'Lucas' : e.person === 'isabell' ? 'Isabell' : 'Beide';
       const typeIcon = {event:'📅',absence:'✈️',birthday:'🎂',note:'📝'}[e.type] || '📅';
-      const timeStr = e.start_time ? ` · ${e.start_time}${e.end_time ? '–'+e.end_time : ''}` : '';
+      const timeStr = (e.end_date && e.end_date !== e.event_date)
+        ? ` · ${new Date(e.event_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})} – ${new Date(e.end_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})}`
+        : (e.start_time ? ` · ${e.start_time}${e.end_time ? '–'+e.end_time : ''}` : '');
       html += `<div class="evt-card" style="margin:0 14px 6px" onclick="openEventModal('${e.event_date}', ${e.id})">
         <div class="evt-bar ${barCls}"></div>
         <div style="flex:1;min-width:0">
@@ -2169,13 +2184,20 @@ function renderDaySheetContent(dateStr) {
   const iHours = isabellFree(dateStr);
   const lHours = lucasFree(dateStr);
 
-  const dayEvts = calendarEvents.filter(e => e.event_date === dateStr);
+  const dayEvts = calendarEvents.filter(e => e.event_date <= dateStr && (e.end_date || e.event_date) >= dateStr);
   const lEvts = dayEvts.filter(e => e.person === 'lucas');
   const iEvts = dayEvts.filter(e => e.person === 'isabell');
   const bEvts = dayEvts.filter(e => e.person === 'both');
 
   const typeIcon = (t) => ({event:'📅',absence:'✈️',birthday:'🎂',note:'📝'}[t] || '📅');
-  const timeStr = (e) => e.start_time ? `${e.start_time}${e.end_time ? '–'+e.end_time : ''}` : 'Ganztägig';
+  const timeStr = (e) => {
+    if (e.end_date && e.end_date !== e.event_date) {
+      const d1 = new Date(e.event_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'});
+      const d2 = new Date(e.end_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'});
+      return `${d1} – ${d2}`;
+    }
+    return e.start_time ? `${e.start_time}${e.end_time ? '–'+e.end_time : ''}` : 'Ganztägig';
+  };
 
   function evtCard(e) {
     const barCls = e.person === 'lucas' ? 'evt-bar-l' : e.person === 'isabell' ? 'evt-bar-i' : 'evt-bar-b';
@@ -2207,9 +2229,6 @@ function renderDaySheetContent(dateStr) {
     </div>`;
   }
   iEvts.forEach(e => html += evtCard(e));
-  html += `<button class="evt-add-btn" onclick="openEventModal('${dateStr}','isabell')">
-    <span style="font-size:16px;color:var(--lav)">+</span> Termin für Isabell
-  </button>`;
 
   // ── Lucas section ──
   html += `<div class="evt-person-hdr" style="color:var(--sage-d);margin-top:6px">
@@ -2217,9 +2236,6 @@ function renderDaySheetContent(dateStr) {
     Lucas · ~${lHours}h frei
   </div>`;
   lEvts.forEach(e => html += evtCard(e));
-  html += `<button class="evt-add-btn" onclick="openEventModal('${dateStr}','lucas')">
-    <span style="font-size:16px;color:var(--sage)">+</span> Termin für Lucas
-  </button>`;
 
   // ── Gemeinsam section ──
   if (bEvts.length > 0) {
@@ -2229,8 +2245,10 @@ function renderDaySheetContent(dateStr) {
     </div>`;
     bEvts.forEach(e => html += evtCard(e));
   }
-  html += `<button class="evt-add-btn" onclick="openEventModal('${dateStr}','both')" style="margin-top:4px">
-    <span style="font-size:16px;color:var(--gold)">+</span> Gemeinsamer Termin
+
+  // ── Single add button ──
+  html += `<button class="evt-add-btn" style="width:100%;margin-top:14px;justify-content:center;font-size:14px;font-weight:600" onclick="openEventModal('${dateStr}', activeUser||'both')">
+    <span style="font-size:18px;line-height:1">+</span> Termin hinzufügen
   </button>`;
 
   // Schicht eintragen if missing
@@ -2366,6 +2384,7 @@ function openEventModal(dateStr, personOrId) {
     setEvPerson(ev.person);
     document.getElementById('evType').value = ev.type || 'event';
     document.getElementById('evDate').value = ev.event_date;
+    document.getElementById('evEndDate').value = ev.end_date || '';
     document.getElementById('evStart').value = ev.start_time || '';
     document.getElementById('evEnd').value = ev.end_time || '';
     document.getElementById('evNote').value = ev.note || '';
@@ -2379,6 +2398,7 @@ function openEventModal(dateStr, personOrId) {
     setEvPerson(defaultPerson);
     document.getElementById('evType').value = 'event';
     document.getElementById('evDate').value = dateStr || todayStr();
+    document.getElementById('evEndDate').value = '';
     document.getElementById('evStart').value = '';
     document.getElementById('evEnd').value = '';
     document.getElementById('evNote').value = '';
@@ -2397,6 +2417,7 @@ async function saveCalEvent() {
     person: _evPerson,
     type: document.getElementById('evType').value,
     event_date: document.getElementById('evDate').value,
+    end_date: document.getElementById('evEndDate').value || null,
     start_time: document.getElementById('evStart').value || null,
     end_time: document.getElementById('evEnd').value || null,
     note: document.getElementById('evNote').value.trim() || null,
