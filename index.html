@@ -1581,20 +1581,16 @@ function setupRealtime() {
 function goTab(t) {
   activeTab = t;
   document.querySelectorAll('.ni').forEach((n, i) => n.classList.toggle('active', i === t));
-  // Week nav only on Heute
-  document.getElementById('weekNavEl').style.display = t === 0 ? 'flex' : 'none';
+  // Week nav on Heute + Putzen + Garten
+  document.getElementById('weekNavEl').style.display = (t === 0 || t === 1 || t === 2) ? 'flex' : 'none';
   // QA bar only on Einkauf
   document.getElementById('qaBar').classList.toggle('hidden', t !== 3);
-  // FAB: Putzen/Garten → add task, Kalender → management sheet
+  // FAB: Putzen/Garten → add task only
   const fab = document.getElementById('fabBtn');
   if (t === 1 || t === 2) {
     fab.style.display = 'flex';
     fab.textContent = '+';
     fab.onclick = () => openTaskModal();
-  } else if (t === 4) {
-    fab.style.display = 'flex';
-    fab.textContent = '⚙';
-    fab.onclick = () => openMgmtSheet();
   } else {
     fab.style.display = 'none';
   }
@@ -1882,18 +1878,13 @@ function renderHeute(dates) {
     html += `</div></div>`;
   }
 
-  // ── Collapsible task management ──
-  const arrowCls = taskMgmtOpen ? 'open' : '';
+  // ── Task management button ──
   html += `
-    <div class="collapse-hdr" onclick="toggleTaskMgmt()">
-      <div class="collapse-hdr-title">⚙️ Aufgaben verwalten</div>
-      <span class="collapse-arrow ${arrowCls}">▾</span>
-    </div>
-    <div class="collapse-body ${arrowCls}" id="taskMgmtBody">
-      ${taskMgmtOpen ? renderMgmtContent() : ''}
+    <div style="padding:4px 16px 20px">
+      <button onclick="openMgmtSheet()" style="width:100%;padding:13px 16px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);font-size:14px;font-weight:600;color:var(--c5);font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center">
+        ⚙️ Aufgaben verwalten
+      </button>
     </div>`;
-
-  html += `<div style="height:20px"></div>`;
   return html;
 }
 
@@ -1908,13 +1899,21 @@ function renderTasks(cat, dates) {
   const catName = cat === 'putz' ? 'Putzen' : 'Garten';
   const isAbs = absences.has(weekKey());
 
+  const wkStart = dates[0], wkEnd = dates[6];
+  const wkLabel = `KW ${weekNum(wkStart)} · ${wkStart.getDate()}.–${wkEnd.getDate()}. ${wkStart.toLocaleString('de',{month:'short'})}`;
+  const isCurrentWk = weekOffset === 0;
+
   let html = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px">
       <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--c6)">${CAT_ICONS[cat]} ${catName}</div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:13px;color:var(--c4)">${done.length}/${catTasks.length}</span>
         <button class="btn-primary" onclick="openTaskModal('${cat}')">+ Neu</button>
       </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:4px 16px 10px">
+      <span style="font-size:13px;color:var(--c4);font-weight:500">${wkLabel}</span>
+      ${!isCurrentWk ? `<button onclick="weekOffset=0;render()" style="font-size:11px;padding:2px 8px;background:var(--sage-l);color:var(--sage-d);border:none;border-radius:20px;cursor:pointer;font-weight:600">Heute</button>` : ''}
     </div>`;
 
   // Garten: absence toggle
@@ -2095,10 +2094,14 @@ function renderKalender() {
 
   // Monthly event list (upcoming or all in month)
   const monthStr = `${calYear}-${String(calMonth).padStart(2,'0')}`;
-  // Include events that start in this month OR span into this month
+  // Only upcoming events (today or later) that fall in this month
   const monthStart = `${calYear}-${String(calMonth).padStart(2,'0')}-01`;
   const monthEnd = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
-  const monthEvts = calendarEvents.filter(e => e.event_date <= monthEnd && (e.end_date || e.event_date) >= monthStart);
+  const monthEvts = calendarEvents.filter(e =>
+    e.event_date <= monthEnd &&
+    (e.end_date || e.event_date) >= monthStart &&
+    (e.end_date || e.event_date) >= today
+  );
   if (monthEvts.length > 0) {
     html += `<div style="padding:8px 14px 4px">
       <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px">Termine diesen Monat</div>
@@ -2336,9 +2339,6 @@ function renderMgmtContent() {
 function refreshMgmtSheet() {
   const el = document.getElementById('mgmtSheetBody');
   if (el) el.innerHTML = renderMgmtContent();
-  // Also refresh inline collapsible on overview if open
-  const inlineEl = document.getElementById('taskMgmtBody');
-  if (inlineEl && taskMgmtOpen) inlineEl.innerHTML = renderMgmtContent();
 }
 
 /* ══════════════════════════════════════════
