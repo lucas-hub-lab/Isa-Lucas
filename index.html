@@ -205,7 +205,9 @@ body{
   display:flex;flex-direction:column;align-items:center;
   gap:2px;padding:7px 2px;border-radius:11px;
   background:var(--c1);border:1px solid var(--c2);
+  cursor:pointer;transition:opacity .15s;
 }
+.day-cell:active{opacity:.7}
 .day-cell.today{background:var(--sage);border-color:var(--sage)}
 .day-cell .dc-n{font-size:9px;font-weight:700;color:var(--c4);letter-spacing:.2px}
 .day-cell .dc-d{font-size:13px;font-weight:700;color:var(--c6)}
@@ -1263,6 +1265,7 @@ let weekOverrides = {}, deferredTasks = {};
 let calendarEvents = [];
 let taskMgmtOpen = localStorage.getItem('zuhause_taskMgmt') === 'true';
 let editingEventId = null;
+let selectedHeuteDay = (new Date().getDay() + 6) % 7; // 0=Mo … 6=So
 
 // ── Import ──
 let impImg = null, impMime = null, impParsed = [];
@@ -1599,8 +1602,17 @@ function goTab(t) {
   render();
 }
 
-function prevWeek() { weekOffset--; setSync('ok'); render(); }
-function nextWeek() { weekOffset++; setSync('ok'); render(); }
+function prevWeek() {
+  weekOffset--;
+  selectedHeuteDay = weekOffset === 0 ? (new Date().getDay() + 6) % 7 : 0;
+  setSync('ok'); render();
+}
+function nextWeek() {
+  weekOffset++;
+  selectedHeuteDay = weekOffset === 0 ? (new Date().getDay() + 6) % 7 : 0;
+  setSync('ok'); render();
+}
+function selectHeuteDay(idx) { selectedHeuteDay = idx; render(); }
 function calPrev() { calMonth--; if (calMonth < 1) { calMonth = 12; calYear--; } render(); }
 function calNext() { calMonth++; if (calMonth > 12) { calMonth = 1; calYear++; } render(); }
 function calToday() {
@@ -1691,183 +1703,195 @@ function renderHeute(dates) {
   const myName = isLucas ? 'Lucas' : isIsabell ? 'Isabell' : '?';
   const partnerName = isLucas ? 'Isabell' : isIsabell ? 'Lucas' : null;
   const heroClass = isIsabell ? 'p-hero-i' : 'p-hero-l';
-  const {l, i} = weekFree();
+  const myC = isIsabell ? 'var(--lav)' : 'var(--sage)';
+  const myCd = isIsabell ? 'var(--lav-d)' : 'var(--sage-d)';
+  const myCl = isIsabell ? 'var(--lav-l)' : 'var(--sage-l)';
+  const myBorder = isIsabell ? 'rgba(114,100,160,.15)' : 'rgba(78,110,82,.15)';
+  const pCd = isLucas ? 'var(--lav-d)' : 'var(--sage-d)';
+  const pCl = isLucas ? 'var(--lav-l)' : 'var(--sage-l)';
+  const pBorder = isLucas ? 'rgba(114,100,160,.15)' : 'rgba(78,110,82,.15)';
+
+  // Selected day within current week
+  const selIdx = Math.min(selectedHeuteDay, dates.length - 1);
+  const selD = dates[selIdx];
+  const selStr = fmtDate(selD);
+  const isViewingToday = selStr === today;
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const selDayName = DAYS[selIdx];
+  const dayNameToIdx = {Mo:0,Di:1,Mi:2,Do:3,Fr:4,Sa:5,So:6};
+
+  // Task helpers
+  function taskMatchesDay(t, dName) {
+    if (!t.day) return false;
+    if (t.day === dName) return true;
+    if (t.day.includes('-')) {
+      const [from, to] = t.day.split('-');
+      const fi = dayNameToIdx[from], ti = dayNameToIdx[to], ci = dayNameToIdx[dName];
+      if (fi != null && ti != null && ci != null) {
+        if (fi <= ti) return ci >= fi && ci <= ti;
+        return ci >= fi || ci <= ti;
+      }
+    }
+    return false;
+  }
 
   const allActive = tasks.filter(t => t.recur !== 'once' && (!deferredTasks[String(t.id)] || deferredTasks[String(t.id)] <= curWk));
-  const doneCount = allActive.filter(t => isDone(t.id)).length;
-  const openG = groceries.filter(g => !g.done);
+  const myTasks = allActive.filter(t => { const a = assignTask(t.assign, t.id, weekOffset); return a === activeUser || a === 'both'; });
+  const myOpen = myTasks.filter(t => !isDone(t.id));
+  const myDone = myTasks.filter(t => isDone(t.id));
 
-  // Personalized hero
-  const todayD = new Date();
-  const todayLabel = todayD.toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long'});
-  const wkDates = weekDates(weekOffset);
-  const wkStart = wkDates[0], wkEnd = wkDates[6];
-  const wkLabel = `KW ${weekNum(wkStart)} · ${wkStart.getDate()}.–${wkEnd.getDate()}. ${wkStart.toLocaleString('de',{month:'short'})}`;
+  let html = '';
 
-  let html = `
-    <div class="p-hero ${heroClass}">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between">
-        <div>
-          <div class="p-hero-name">${greet}, ${myName}! ${emoji}</div>
-          <div class="p-hero-date">${todayLabel}</div>
-          <div class="p-hero-date" style="margin-top:1px">${wkLabel}</div>
-        </div>
-        <div style="display:flex;gap:5px;flex-shrink:0;margin-left:8px">
-          <div class="hchip">
-            <div class="hchip-v">${doneCount}/${allActive.length}</div>
-            <div class="hchip-l">Tasks</div>
-          </div>
-          <div class="hchip">
-            <div class="hchip-v">${openG.length}</div>
-            <div class="hchip-l">Einkauf</div>
-          </div>
-        </div>
-      </div>
-    </div>`;
+  // ── Hero ──
+  const heroDateLabel = new Date().toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long'});
+  html += `<div class="p-hero ${heroClass}" style="margin-bottom:0">
+    <div class="p-hero-name">${greet}, ${myName}! ${emoji}</div>
+    <div class="p-hero-date">${heroDateLabel}</div>
+  </div>`;
 
-  // Week strip — personalized (show own hours, partner shift)
-  html += `<div class="day-strip">`;
+  // ── Day selector strip ──
+  html += `<div class="day-strip" style="padding:4px 10px 6px">`;
   dates.forEach((d, idx) => {
     const ds = fmtDate(d);
     const sh = shifts[ds];
     const isToday = ds === today;
-    // Show relevant indicator for logged-in user
+    const isSel = idx === selIdx;
+    const hasEvts = calendarEvents.some(e => e.event_date <= ds && (e.end_date || e.event_date) >= ds);
     let indicator = '';
-    if (isIsabell && sh) indicator = `<span class="sh sh${sh}" style="font-size:7px;padding:1px 3px">${sh}</span>`;
-    else if (isLucas && sh) indicator = `<span style="font-size:7px;color:var(--lav);font-weight:700">${sh}</span>`;
-    html += `
-      <div class="day-cell ${isToday ? 'today' : ''}">
-        <div class="dc-n">${DAYS[idx]}</div>
-        <div class="dc-d">${d.getDate()}</div>
-        <div class="dc-s">${indicator}</div>
-      </div>`;
+    if (sh) indicator = `<span class="sh sh${sh}" style="font-size:6px;padding:1px 2px;line-height:1.4">${sh}</span>`;
+    else if (hasEvts) indicator = `<span style="width:5px;height:5px;background:${isSel?'#fff':myC};border-radius:50%;display:inline-block;margin-top:1px"></span>`;
+    const selBg = isSel ? `background:${myC};border-radius:10px;` : '';
+    const selTxt = isSel ? 'color:#fff;font-weight:700;' : isToday ? `color:${myC};font-weight:700;` : '';
+    html += `<div class="day-cell" style="${selBg}cursor:pointer" onclick="selectHeuteDay(${idx})">
+      <div class="dc-n" style="${selTxt}">${DAYS[idx]}</div>
+      <div class="dc-d" style="${selTxt}">${d.getDate()}</div>
+      <div class="dc-s">${indicator}</div>
+    </div>`;
   });
   html += `</div>`;
 
-  // Today's events + availability (compact)
-  const todayEvts = calendarEvents.filter(e => e.event_date === today);
-  const myTodayEvts = todayEvts.filter(e => e.person === activeUser || e.person === 'both');
-  const partnerTodayEvts = todayEvts.filter(e => e.person === (isLucas ? 'isabell' : 'lucas'));
-  const todayShift = shifts[today];
-
-  if (todayEvts.length > 0 || todayShift || true) {
-    html += `<div style="display:flex;gap:8px;padding:10px 16px 0">`;
-    // My card
-    html += `<div style="flex:1;background:${isIsabell ? 'var(--lav-l)' : 'var(--sage-l)'};border:1px solid ${isIsabell ? 'rgba(114,100,160,.15)' : 'rgba(78,110,82,.15)'};border-radius:var(--r);padding:10px 12px">
-      <div style="font-size:10px;color:${isIsabell ? 'var(--lav-d)' : 'var(--sage-d)'};font-weight:700;text-transform:uppercase;letter-spacing:.3px">Heute</div>`;
-    if (isIsabell && todayShift) {
-      const sInfo = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[todayShift] || todayShift;
-      html += `<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="sh sh${todayShift}">${todayShift}</span><span style="font-size:11px;color:var(--c5)">${sInfo}</span></div>`;
-    } else if (!isIsabell || !todayShift) {
-      const myH = isIsabell ? isabellFree(today) : lucasFree(today);
-      html += `<div style="font-size:17px;font-weight:700;font-family:'Fraunces',serif;color:${isIsabell ? 'var(--lav)' : 'var(--sage)'};margin-top:3px">~${myH}h frei</div>`;
-    }
-    if (myTodayEvts.length > 0) {
-      myTodayEvts.slice(0,2).forEach(e => {
-        html += `<div style="font-size:11px;color:${isIsabell ? 'var(--lav-d)' : 'var(--sage-d)'};margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">• ${e.title}</div>`;
-      });
-    }
-    html += `</div>`;
-    // Partner card
-    if (partnerName) {
-      const pColor = isLucas ? 'var(--lav-d)' : 'var(--sage-d)';
-      const pBg = isLucas ? 'var(--lav-l)' : 'var(--sage-l)';
-      const pBorder = isLucas ? 'rgba(114,100,160,.15)' : 'rgba(78,110,82,.15)';
-      html += `<div style="flex:1;background:${pBg};border:1px solid ${pBorder};border-radius:var(--r);padding:10px 12px">
-        <div style="font-size:10px;color:${pColor};font-weight:700;text-transform:uppercase;letter-spacing:.3px">${partnerName}</div>`;
-      if (isLucas && todayShift) {
-        const sInfo = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[todayShift] || todayShift;
-        html += `<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="sh sh${todayShift}">${todayShift}</span><span style="font-size:11px;color:var(--c5)">${sInfo}</span></div>`;
-        const pFree = isabellFree(today);
-        html += `<div style="font-size:13px;color:${pColor};margin-top:3px;opacity:.8">~${pFree}h frei</div>`;
-      } else {
-        const pFree = isLucas ? isabellFree(today) : lucasFree(today);
-        html += `<div style="font-size:17px;font-weight:700;font-family:'Fraunces',serif;color:${isLucas ? 'var(--lav)' : 'var(--sage)'};margin-top:3px">~${pFree}h frei</div>`;
-      }
-      partnerTodayEvts.slice(0,2).forEach(e => {
-        html += `<div style="font-size:11px;color:${pColor};margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">• ${e.title}</div>`;
-      });
-      html += `</div>`;
-    }
-    html += `</div>`;
+  // ── Day label (if not today) ──
+  if (!isViewingToday) {
+    const selFullLabel = selD.toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long'});
+    html += `<div style="padding:8px 16px 2px;display:flex;align-items:center;gap:8px">
+      <span style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--c6)">${selFullLabel}</span>
+      ${weekOffset === 0 ? `<button onclick="selectHeuteDay(${todayIdx})" style="font-size:11px;padding:2px 8px;background:${myCl};color:${myCd};border:none;border-radius:20px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">Heute ↩</button>` : ''}
+    </div>`;
   }
 
-  // Weekend summary banner
-  const todayDow = new Date().getDay();
-  const isWeekend = (todayDow === 5 || todayDow === 6 || todayDow === 0) && weekOffset === 0;
-  if (isWeekend && doneCount > 0 && allActive.length > 0) {
-    const pct = Math.round(doneCount / allActive.length * 100);
-    const emoji2 = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪';
-    html += `<div style="margin:10px 16px 0;background:var(--gold-l);border:1px solid rgba(160,120,24,.2);border-radius:var(--rl);padding:11px 14px;display:flex;align-items:center;gap:10px">
-      <span style="font-size:22px">${emoji2}</span>
-      <div>
-        <div style="font-family:'Fraunces',serif;font-size:13px;font-weight:700;color:var(--gold-d)">Wochenrückblick</div>
-        <div style="font-size:11px;color:var(--gold-d);opacity:.85;margin-top:1px">${doneCount}/${allActive.length} erledigt · ${pct}%</div>
+  // ── Events for selected day ──
+  const selShift = shifts[selStr];
+  const dayEvts = calendarEvents.filter(e => e.event_date <= selStr && (e.end_date || e.event_date) >= selStr);
+  const myEvts = dayEvts.filter(e => e.person === activeUser || e.person === 'both');
+  const partnerEvts = dayEvts.filter(e => partnerName && e.person === (isLucas ? 'isabell' : 'lucas'));
+  const typeIcon = (t) => ({event:'📅',absence:'✈️',birthday:'🎂',note:'📝'}[t] || '📅');
+  const evtTime = (e) => (e.end_date && e.end_date !== e.event_date) ? '' : (e.start_time ? `${e.start_time}${e.end_time?'–'+e.end_time:''}` : '');
+
+  html += `<div style="padding:6px 16px 0">`;
+
+  // Isabell's own shift card
+  if (isIsabell && selShift) {
+    const sLabel = {L:'Langdienst · 6:30–19:30',S:'Spätdienst · 13:30–19:30',N:'Nachtdienst · 19:00–7:00',U:'Urlaub / Frei'}[selShift] || selShift;
+    html += `<div class="evt-card" style="background:${myCl};border-color:${myBorder};margin-bottom:6px">
+      <div class="evt-bar evt-bar-i"></div>
+      <div style="flex:1"><div class="evt-title"><span class="sh sh${selShift}">${selShift}</span> ${sLabel}</div></div>
+      <button style="background:none;border:none;font-size:13px;cursor:pointer;color:var(--c4);padding:4px" onclick="event.stopPropagation();openShiftFor('${selStr}')">✏️</button>
+    </div>`;
+  }
+
+  // My calendar events
+  myEvts.forEach(e => {
+    const t2 = evtTime(e);
+    const dRange = (e.end_date && e.end_date !== e.event_date) ? `${new Date(e.event_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})}–${new Date(e.end_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})}` : '';
+    html += `<div class="evt-card" style="margin-bottom:6px" onclick="openEventModal('${selStr}',${e.id})">
+      <div class="evt-bar evt-bar-${e.person==='both'?'b':(isIsabell?'i':'l')}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="evt-title">${typeIcon(e.type)} ${e.title}</div>
+        ${(t2||dRange)?`<div class="evt-time">${dRange||t2}</div>`:''}
       </div>
     </div>`;
+  });
+
+  // Partner compact card
+  const pShift = isLucas ? selShift : null;
+  if (partnerName && (pShift || partnerEvts.length > 0)) {
+    html += `<div style="background:${pCl};border:1px solid ${pBorder};border-radius:var(--r);padding:9px 11px;margin-bottom:6px">
+      <div style="font-size:10px;color:${pCd};font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">${partnerName}</div>`;
+    if (pShift) {
+      const pSLabel = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[pShift];
+      html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:${partnerEvts.length?'5px':'0'}"><span class="sh sh${pShift}">${pShift}</span><span style="font-size:12px;color:var(--c5)">${pSLabel}</span></div>`;
+    }
+    partnerEvts.slice(0,3).forEach(e => {
+      const t2 = evtTime(e);
+      html += `<div style="font-size:12px;color:${pCd};display:flex;align-items:center;gap:4px;margin-top:2px">${typeIcon(e.type)} ${e.title}${t2?` <span style="color:var(--c4);font-size:11px">${t2}</span>`:''}</div>`;
+    });
+    html += `</div>`;
   }
 
-  // My open tasks
-  const myOpen = allActive.filter(t => {
-    const a = assignTask(t.assign, t.id, weekOffset);
-    return (a === activeUser || a === 'both') && !isDone(t.id);
-  });
-  const myDone = allActive.filter(t => {
-    const a = assignTask(t.assign, t.id, weekOffset);
-    return (a === activeUser || a === 'both') && isDone(t.id);
-  });
-  const otherOpen = allActive.filter(t => {
-    const a = assignTask(t.assign, t.id, weekOffset);
-    return a !== activeUser && a !== 'both' && !isDone(t.id);
-  });
+  // Schicht eintragen for Isabell if missing
+  if (isIsabell && !selShift) {
+    html += `<button class="btn-ghost" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="openShiftFor('${selStr}')">+ Schicht eintragen</button>`;
+  }
 
-  if (myOpen.length === 0 && myDone.length > 0) {
-    html += `<div style="margin:14px 16px 0;background:var(--sage-l);border:1px solid rgba(78,110,82,.25);border-radius:var(--rl);padding:14px;text-align:center">
-      <div style="font-size:24px;margin-bottom:4px">🎉</div>
-      <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--sage-d)">Meine Aufgaben alle erledigt!</div>
+  // + Termin button
+  html += `<button onclick="openEventModal('${selStr}',activeUser||'both')" style="font-size:12px;padding:5px 12px;background:${myCl};color:${myCd};border:1px solid ${myBorder};border-radius:20px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer">+ Termin</button>`;
+  html += `</div>`;
+
+  // ── Task recommendations for selected day ──
+  const recsDayMatch = myOpen.filter(t => taskMatchesDay(t, selDayName));
+  const recsNoPref   = myOpen.filter(t => !t.day && !recsDayMatch.includes(t));
+  const recsOther    = myOpen.filter(t => !recsDayMatch.includes(t) && !recsNoPref.includes(t));
+  const recs = [...recsDayMatch, ...recsNoPref, ...recsOther].slice(0, 4);
+  const doneToday = (isViewingToday && weekOffset === 0) ? myDone.slice(0, 3) : [];
+
+  if (recs.length > 0 || doneToday.length > 0) {
+    const recLabel = isViewingToday ? 'Aufgaben heute' : `Aufgaben ${selDayName}.`;
+    const allTab = myOpen.length > 0 ? (isLucas || myOpen.some(t => t.cat === 'garten') ? 1 : 1) : 1;
+    html += `<div class="sec-lbl">${recLabel} <span class="sec-lbl-count">${myDone.length}/${myOpen.length+myDone.length}</span>
+      ${myOpen.length > recs.length ? `<span onclick="goTab(1)" style="font-size:11px;color:${myC};font-weight:600;cursor:pointer;margin-left:4px">Alle →</span>` : ''}
     </div>`;
-  }
-
-  if (myOpen.length > 0 || myDone.length > 0) {
-    html += `<div class="sec-lbl">Meine Aufgaben <span class="sec-lbl-count">${myDone.length}/${myOpen.length + myDone.length}</span></div>`;
     html += `<div class="card"><div class="card-body">`;
-    myOpen.slice(0, 6).forEach(t => {
+    recs.forEach(t => {
       const a = assignTask(t.assign, t.id, weekOffset);
-      const day = t.day ? bestDay(dates, a === 'both' ? (activeUser || 'lucas') : a, t.day) : bestDay(dates, a === 'both' ? (activeUser || 'lucas') : a);
+      const day = t.day ? bestDay(dates, a==='both'?(activeUser||'lucas'):a, t.day) : null;
       html += taskRowHTML(t, a, day);
     });
-    if (myOpen.length > 6) html += `<div style="padding:10px 0;text-align:center;font-size:13px;color:var(--c4);cursor:pointer;font-weight:600" onclick="goTab(1)">+${myOpen.length-6} weitere →</div>`;
-    if (myDone.length > 0) {
-      html += `<div class="done-sep">Erledigt</div>`;
-      myDone.slice(0,4).forEach(t => {
+    if (doneToday.length > 0) {
+      html += `<div class="done-sep">Heute erledigt</div>`;
+      doneToday.forEach(t => {
         const a = assignTask(t.assign, t.id, weekOffset);
-        const day = t.day ? bestDay(dates, a === 'both' ? (activeUser||'lucas') : a, t.day) : bestDay(dates, a === 'both' ? (activeUser||'lucas') : a);
+        const day = t.day ? bestDay(dates, a==='both'?(activeUser||'lucas'):a, t.day) : null;
         html += taskRowHTML(t, a, day);
       });
     }
     html += `</div></div>`;
+  } else if (myOpen.length === 0 && myDone.length > 0 && weekOffset === 0) {
+    html += `<div style="margin:12px 16px 0;background:${myCl};border:1px solid ${myBorder};border-radius:var(--rl);padding:14px;text-align:center">
+      <div style="font-size:24px;margin-bottom:4px">🎉</div>
+      <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:${myCd}">Alle Aufgaben erledigt!</div>
+    </div>`;
   }
 
-  // Partner's open tasks (compact, only if any)
-  if (otherOpen.length > 0) {
-    html += `<div class="sec-lbl" style="color:var(--c4);">${partnerName || 'Andere'} <span class="sec-lbl-count">${otherOpen.length}</span></div>`;
-    html += `<div class="card"><div class="card-body">`;
-    otherOpen.slice(0,3).forEach(t => {
-      const a = assignTask(t.assign, t.id, weekOffset);
-      const day = t.day ? bestDay(dates, a, t.day) : bestDay(dates, a);
-      html += taskRowHTML(t, a, day);
-    });
-    if (otherOpen.length > 3) html += `<div style="padding:10px 0;text-align:center;font-size:13px;color:var(--c4)">+${otherOpen.length-3} weitere</div>`;
-    html += `</div></div>`;
+  // ── Wochenrückblick (Wochenende) ──
+  const todayDow = new Date().getDay();
+  if ((todayDow === 5 || todayDow === 6 || todayDow === 0) && weekOffset === 0 && myDone.length > 0) {
+    const total = myOpen.length + myDone.length;
+    const pct = total ? Math.round(myDone.length / total * 100) : 0;
+    const emo2 = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪';
+    html += `<div style="margin:10px 16px 0;background:var(--gold-l);border:1px solid rgba(160,120,24,.2);border-radius:var(--rl);padding:11px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">${emo2}</span>
+      <div><div style="font-family:'Fraunces',serif;font-size:13px;font-weight:700;color:var(--gold-d)">Wochenrückblick</div>
+      <div style="font-size:11px;color:var(--gold-d);opacity:.85;margin-top:1px">${myDone.length}/${total} erledigt · ${pct}%</div></div>
+    </div>`;
   }
 
-  // Grocery preview
+  // ── Grocery preview ──
+  const openG = groceries.filter(g => !g.done);
   if (openG.length > 0) {
     html += `<div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">
       <span>Einkauf <span class="sec-lbl-count">${openG.length}</span></span>
       <button class="btn-ghost" style="font-size:11px" onclick="goTab(3)">Alle</button>
-    </div>
-    <div class="card"><div class="card-body">`;
+    </div><div class="card"><div class="card-body">`;
     openG.slice(0, 3).forEach(g => {
       html += `<div class="task-row" onclick="toggleGrocery(${g.id})">
         <div class="cb-wrap"><div class="cb" id="gcb-${g.id}"></div></div>
@@ -1879,12 +1903,11 @@ function renderHeute(dates) {
   }
 
   // ── Task management button ──
-  html += `
-    <div style="padding:4px 16px 20px">
-      <button onclick="openMgmtSheet()" style="width:100%;padding:13px 16px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);font-size:14px;font-weight:600;color:var(--c5);font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center">
-        ⚙️ Aufgaben verwalten
-      </button>
-    </div>`;
+  html += `<div style="padding:4px 16px 20px">
+    <button onclick="openMgmtSheet()" style="width:100%;padding:13px 16px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);font-size:14px;font-weight:600;color:var(--c5);font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center">
+      ⚙️ Aufgaben verwalten
+    </button>
+  </div>`;
   return html;
 }
 
