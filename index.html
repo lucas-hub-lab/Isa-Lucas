@@ -637,6 +637,77 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
   padding:2px 7px;
 }
 .org-badge.paused-badge{background:var(--terra-l);color:var(--terra)}
+
+/* ══════════════════════════════════════════
+   NEW CALENDAR GRID (Tab 4)
+══════════════════════════════════════════ */
+.kal-grid{
+  display:grid;grid-template-columns:repeat(7,1fr);
+  gap:2px;padding:4px 14px 8px;
+}
+.kal-dh{
+  font-size:10px;color:var(--c4);padding:4px 0;
+  font-weight:700;text-align:center;
+}
+.kal-dc{
+  display:flex;flex-direction:column;align-items:center;
+  gap:2px;padding:5px 1px 4px;border-radius:10px;
+  cursor:pointer;min-height:58px;
+  transition:background .1s;
+  border:1.5px solid transparent;
+  -webkit-user-select:none;user-select:none;
+}
+.kal-dc:active{background:var(--c2)}
+.kal-dn{
+  font-size:13px;font-weight:700;color:var(--c6);
+  width:24px;height:24px;display:flex;
+  align-items:center;justify-content:center;border-radius:50%;
+}
+.kal-today .kal-dn{background:var(--sage);color:#fff}
+.kal-selected{background:var(--sage-l);border-color:rgba(78,110,82,.25)}
+.kal-dots{
+  display:flex;gap:2px;align-items:center;
+  justify-content:center;min-height:8px;flex-wrap:wrap;
+}
+.kal-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.kal-dot-l{background:var(--sage)}
+.kal-dot-i{background:var(--lav)}
+.kal-dot-b{background:var(--gold)}
+.kal-dot-done{background:var(--c3)}
+.kal-dot-warn{background:var(--terra)}
+
+/* Day Sheet */
+.day-avail-card{
+  flex:1;border-radius:var(--r);padding:10px 12px;
+  border:1px solid transparent;
+}
+.day-task-item{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 14px;border-bottom:1px solid var(--c2);
+  cursor:pointer;transition:background .1s;
+  -webkit-user-select:none;user-select:none;
+}
+.day-task-item:last-child{border-bottom:none}
+.day-task-item:active{background:var(--c0)}
+.day-task-cb{
+  width:22px;height:22px;border-radius:50%;
+  border:2px solid var(--c3);background:var(--c0);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .18s;
+}
+.day-task-cb.done{background:var(--sage);border-color:var(--sage)}
+.day-task-cb.done::after{
+  content:'';width:6px;height:10px;
+  border:2px solid #fff;border-top:none;border-left:none;
+  transform:rotate(45deg) translate(-1px,-1px);display:block;
+}
+
+/* Availability warning banner */
+.avail-warn{
+  margin:4px 16px 6px;background:var(--gold-l);
+  border:1px solid rgba(160,120,24,.25);border-radius:var(--r);
+  padding:9px 13px;display:flex;align-items:center;gap:9px;
+}
 </style>
 </head>
 <body>
@@ -740,7 +811,7 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     </div>
     <div class="ni" id="nav-4" onclick="goTab(4)">
       <svg viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-      <span>Organis.</span>
+      <span>Kalender</span>
     </div>
   </nav>
 
@@ -815,6 +886,15 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
         <option value="high">🔴 Dringend</option>
         <option value="med" selected>🟡 Normal</option>
         <option value="low">🟢 Niedrig</option>
+      </select>
+    </div>
+    <div>
+      <span class="field-label">Zeitaufwand</span>
+      <select class="field-select" id="fDuration">
+        <option value="15">~15 Min</option>
+        <option value="30" selected>~30 Min</option>
+        <option value="60">~1 Stunde</option>
+        <option value="120">~2 Stunden</option>
       </select>
     </div>
   </div>
@@ -946,6 +1026,23 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
 </div>
 </div>
 
+<!-- ══ MODAL: Tag-Detail ══ -->
+<div class="modal-bg" id="daySheet">
+<div class="modal-sheet">
+  <div class="modal-drag" onclick="closeModal('daySheet');selectedCalDay=null;if(activeTab===4)render()"><div class="modal-drag-bar"></div></div>
+  <div id="daySheetBody"></div>
+</div>
+</div>
+
+<!-- ══ MODAL: Aufgaben verwalten ══ -->
+<div class="modal-bg" id="mgmtSheet">
+<div class="modal-sheet" style="max-height:92vh">
+  <div class="modal-drag" onclick="closeModal('mgmtSheet')"><div class="modal-drag-bar"></div></div>
+  <div id="mgmtSheetBody"></div>
+  <div style="height:4px"></div>
+</div>
+</div>
+
 <script>
 /* ══════════════════════════════════════════
    SUPABASE
@@ -970,6 +1067,7 @@ let activeUser = localStorage.getItem('zuhause_user') || null;
 // ── Calendar ──
 const _nd = new Date();
 let calYear = _nd.getFullYear(), calMonth = _nd.getMonth() + 1;
+let selectedCalDay = null;
 
 // ── Task editing ──
 let editingTaskId = null;
@@ -1028,6 +1126,11 @@ function isabellFree(dateStr) {
   if (s === 'S') return 5;
   if (s === 'N') return 0;
   if (s === 'U') return 10;
+  // N+1 recovery: if the day before was a night shift, only 2h available (sleep until ~15:00)
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() - 1);
+  const prev = fmtDate(d);
+  if (shifts[prev] === 'N') return 2;
   return 9;
 }
 function weekFree(offset = weekOffset) {
@@ -1082,6 +1185,49 @@ function bestDay(dates, person, dayRange) {
 function isDone(taskId) {
   const wk = weekKey();
   return !!(comps[wk] && comps[wk][taskId]);
+}
+
+// ── Calendar helpers ──
+function weekKeyForDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow = d.getDay();
+  const diff = (dow === 0) ? -6 : 1 - dow;
+  const mon = new Date(d); mon.setDate(d.getDate() + diff);
+  return `${mon.getFullYear()}-W${String(weekNum(mon)).padStart(2,'0')}`;
+}
+function weekOffsetForDate(dateStr) {
+  const now = new Date();
+  const dow0 = now.getDay();
+  const diff0 = (dow0 === 0) ? -6 : 1 - dow0;
+  const curMon = new Date(now); curMon.setHours(0,0,0,0); curMon.setDate(now.getDate() + diff0);
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow1 = d.getDay();
+  const diff1 = (dow1 === 0) ? -6 : 1 - dow1;
+  const tgtMon = new Date(d); tgtMon.setHours(0,0,0,0); tgtMon.setDate(d.getDate() + diff1);
+  return Math.round((tgtMon - curMon) / (7 * 24 * 3600 * 1000));
+}
+function getTasksForCalDay(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow = (d.getDay() + 6) % 7; // 0=Mo
+  const DN = ['Mo','Di','Mi','Do','Fr','Sa','So'];
+  const dayName = DN[dow];
+  const DIDX = {Mo:0,Di:1,Mi:2,Do:3,Fr:4,Sa:5,So:6};
+  return tasks.filter(t => {
+    if (t.recur === 'daily') return true;
+    if (!t.day) return false; // no specific day → don't pin to a day in grid
+    if (t.day === dayName) return true;
+    if (t.day.includes('-')) {
+      const [from, to] = t.day.split('-');
+      const fi = DIDX[from], ti = DIDX[to];
+      if (fi !== undefined && ti !== undefined) {
+        if (fi <= ti) return dow >= fi && dow <= ti;
+        return dow >= fi || dow <= ti; // wrap (e.g. Do-So would be unusual but safe)
+      }
+    }
+    if (t.day === 'Mo-Fr') return dow >= 0 && dow <= 4;
+    if (t.day === 'Sa-So') return dow >= 5;
+    return false;
+  });
 }
 
 /* ══════════════════════════════════════════
@@ -1196,12 +1342,6 @@ function setupRealtime() {
       tasks = allTasksRaw.filter(row => row.active !== false);
       render();
     })
-    .on('postgres_changes', {event:'DELETE', schema:'public', table:'tasks'}, (payload) => {
-      const id = payload.old.id;
-      allTasksRaw = allTasksRaw.filter(t => t.id !== id);
-      tasks = allTasksRaw.filter(row => row.active !== false);
-      render();
-    })
     .on('postgres_changes', {event:'INSERT', schema:'public', table:'task_overrides'}, (payload) => {
       const x = payload.new;
       if (x.action === 'assign') {
@@ -1252,8 +1392,19 @@ function goTab(t) {
   document.getElementById('weekNavEl').style.display = t === 0 ? 'flex' : 'none';
   // QA bar only on Einkauf
   document.getElementById('qaBar').classList.toggle('hidden', t !== 3);
-  // FAB only on Putzen/Garten
-  document.getElementById('fabBtn').style.display = (t === 1 || t === 2) ? 'flex' : 'none';
+  // FAB: Putzen/Garten → add task, Kalender → management sheet
+  const fab = document.getElementById('fabBtn');
+  if (t === 1 || t === 2) {
+    fab.style.display = 'flex';
+    fab.textContent = '+';
+    fab.onclick = () => openTaskModal();
+  } else if (t === 4) {
+    fab.style.display = 'flex';
+    fab.textContent = '⚙';
+    fab.onclick = () => openMgmtSheet();
+  } else {
+    fab.style.display = 'none';
+  }
   // Scroll to top
   document.getElementById('screen').scrollTop = 0;
   render();
@@ -1263,6 +1414,12 @@ function prevWeek() { weekOffset--; setSync('ok'); render(); }
 function nextWeek() { weekOffset++; setSync('ok'); render(); }
 function calPrev() { calMonth--; if (calMonth < 1) { calMonth = 12; calYear--; } render(); }
 function calNext() { calMonth++; if (calMonth > 12) { calMonth = 1; calYear++; } render(); }
+function calToday() {
+  const nd = new Date();
+  calYear = nd.getFullYear(); calMonth = nd.getMonth() + 1;
+  selectedCalDay = null;
+  render();
+}
 
 /* ══════════════════════════════════════════
    RENDER DISPATCHER
@@ -1295,12 +1452,12 @@ function taskRowHTML(task, assigned, day) {
   const wk = weekKey();
   const ovr = weekOverrides[wk] && weekOverrides[wk][task.id];
   const ovrBadge = ovr ? `<span style="font-size:9px;color:var(--lav-d);font-weight:700;margin-left:2px">↷ ${ovr}</span>` : '';
-  // "Done by" note — shown when someone completes another person's task
+  // "Done by" note — shown when someone completes another person's task, or any "both" task
   let doneByNote = '';
-  if (done && assigned !== 'both') {
+  if (done) {
     const comp = comps[wk] && comps[wk][task.id];
     const doneBy = comp && comp.done_by;
-    if (doneBy && doneBy !== assigned) {
+    if (doneBy && (assigned === 'both' || doneBy !== assigned)) {
       const doneByName = doneBy === 'lucas' ? 'Lucas' : 'Isabell';
       const noteColor = doneBy === 'lucas' ? 'var(--sage-d)' : 'var(--lav-d)';
       doneByNote = `<span style="font-size:10px;color:${noteColor};font-weight:600;margin-left:2px">· von ${doneByName}</span>`;
@@ -1592,15 +1749,19 @@ function grocRowHTML(g) {
 }
 
 /* ══════════════════════════════════════════
-   TAB 4: ORGANISATION (Kalender + Task-Verwaltung)
+   TAB 4: KALENDER
 ══════════════════════════════════════════ */
 function renderKalender() {
+  const today = todayStr();
   const monthName = new Date(calYear, calMonth - 1, 1).toLocaleString('de', {month:'long', year:'numeric'});
   const daysInMonth = new Date(calYear, calMonth, 0).getDate();
   const firstDow = (new Date(calYear, calMonth - 1, 1).getDay() + 6) % 7;
-  const today = todayStr();
 
-  // Fairness rings
+  // Check if next week is missing shifts (warn)
+  const nextWkDates = weekDates(1);
+  const nextWkMissingShifts = nextWkDates.filter(d => !shifts[fmtDate(d)]).length >= 5;
+
+  // Week fairness (current week)
   const allT = tasks.filter(t => t.recur !== 'once');
   const lT = allT.filter(t => assignTask(t.assign, t.id, weekOffset) === 'lucas');
   const iT = allT.filter(t => assignTask(t.assign, t.id, weekOffset) === 'isabell');
@@ -1608,182 +1769,316 @@ function renderKalender() {
   const iD = iT.filter(t => isDone(t.id)).length;
   const lP = lT.length ? Math.round(lD / lT.length * 100) : 0;
   const iP = iT.length ? Math.round(iD / iT.length * 100) : 0;
-  const R = 17, circ = +(2 * Math.PI * R).toFixed(1);
-  function ring(label, d, total, pct, color) {
-    const offset = +(circ - (pct / 100) * circ).toFixed(1);
-    return `
-      <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--c2)">
-        <div class="ring-wrap">
-          <svg width="46" height="46" viewBox="0 0 46 46">
-            <circle fill="none" stroke="var(--c2)" stroke-width="4" cx="23" cy="23" r="${R}"/>
-            <circle fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"
-              cx="23" cy="23" r="${R}" stroke-dasharray="${circ}" stroke-dashoffset="${offset}"/>
-          </svg>
-          <div class="ring-center">${pct}%</div>
-        </div>
-        <div>
-          <div style="font-size:14px;font-weight:600;color:var(--c6)">${label}</div>
-          <div style="font-size:11px;color:var(--c4);margin-top:1px">${d} von ${total} erledigt</div>
-        </div>
-      </div>`;
+
+  let html = ``;
+
+  // ── Month nav ──
+  html += `
+    <div style="display:flex;align-items:center;padding:12px 14px 4px;gap:6px">
+      <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+      <div style="flex:1;text-align:center;font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--c6)">${monthName}</div>
+      <button class="cal-nav-btn" onclick="calToday()" style="font-size:12px;padding:5px 10px;color:var(--sage);border-color:rgba(78,110,82,.4)">Heute</button>
+      <button class="cal-nav-btn" onclick="calNext()">›</button>
+    </div>`;
+
+  // ── Missing shifts warning ──
+  if (nextWkMissingShifts) {
+    html += `<div class="avail-warn">
+      <span style="font-size:17px">⚠️</span>
+      <div style="font-size:12px;color:var(--gold-d)"><strong>Nächste Woche</strong> — Isabells Schichten noch nicht eingetragen</div>
+      <button class="btn-ghost" style="font-size:11px;padding:5px 10px;margin-left:auto;flex-shrink:0" onclick="openImport()">Importieren</button>
+    </div>`;
   }
 
-  let html = `
-    <!-- Import section -->
-    <div style="padding:14px 16px 8px;display:flex;align-items:center;justify-content:space-between">
-      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--c6)">📅 Schichtplan Isabell</div>
-    </div>
-    <div class="card">
-      <div class="card-body-pad" style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn-primary" style="width:100%;padding:14px;font-size:15px;border-radius:var(--r)" onclick="openImport()">
-          📸 Screenshot importieren
-        </button>
-        <button class="btn-ghost" style="width:100%;padding:13px;font-size:14px;border-radius:var(--r)" onclick="openModal('shiftModal')">
-          + Schicht manuell eintragen
-        </button>
-      </div>
-    </div>
-
-    <!-- Calendar -->
-    <div class="cal-nav">
-      <button class="cal-nav-btn" onclick="calPrev()">‹</button>
-      <div class="cal-nav-label">${monthName}</div>
-      <button class="cal-nav-btn" onclick="calNext()">›</button>
-    </div>
-    <div style="margin:0 16px 10px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--rl);overflow:hidden;box-shadow:var(--sh)">
-      <div class="cal-grid">`;
-
-  DAYS.forEach(d => html += `<div class="cal-dh">${d}</div>`);
+  // ── Calendar grid ──
+  html += `<div class="kal-grid">`;
+  DAYS.forEach(d => html += `<div class="kal-dh">${d}</div>`);
   for (let i = 0; i < firstDow; i++) html += `<div></div>`;
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const sh = shifts[ds];
-    const isT = ds === today;
+    const isToday = ds === today;
+    const isSelected = ds === selectedCalDay;
+    const wk = weekKeyForDate(ds);
+    const dayTasks = getTasksForCalDay(ds);
+    const wkOff = weekOffsetForDate(ds);
+    // Dot per task (max 3)
+    let dots = '';
+    const maxDots = 3;
+    let shown = 0;
+    for (let ti = 0; ti < dayTasks.length && shown < maxDots; ti++) {
+      const t = dayTasks[ti];
+      const done = !!(comps[wk] && comps[wk][t.id]);
+      const who = assignTask(t.assign, t.id, wkOff);
+      const cls = done ? 'kal-dot-done' : who === 'lucas' ? 'kal-dot-l' : who === 'isabell' ? 'kal-dot-i' : 'kal-dot-b';
+      dots += `<span class="kal-dot ${cls}"></span>`;
+      shown++;
+    }
+    if (dayTasks.length > maxDots) dots += `<span style="font-size:6px;color:var(--c4);line-height:1">+</span>`;
     html += `
-      <div class="cal-dc" onclick="openShiftFor('${ds}')">
-        <div class="cal-dn" style="${isT ? 'width:22px;height:22px;background:var(--sage);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center' : ''}">${d}</div>
-        <div class="cal-ds">${sh ? `<span class="sh sh${sh}">${sh}</span>` : `<span style="font-size:7px;color:var(--c3)">·</span>`}</div>
+      <div class="kal-dc${isToday ? ' kal-today' : ''}${isSelected ? ' kal-selected' : ''}" onclick="openDaySheet('${ds}')">
+        <div class="kal-dn">${d}</div>
+        ${sh ? `<span class="sh sh${sh}" style="font-size:7px;padding:1px 4px;line-height:1.6">${sh}</span>` : `<div style="height:16px"></div>`}
+        <div class="kal-dots">${dots}</div>
       </div>`;
   }
-  html += `</div></div>`;
+  html += `</div>`;
 
-  // Legend
-  html += `
-    <div style="padding:4px 16px 12px;display:flex;gap:10px;flex-wrap:wrap">
-      <span class="sh shL">L</span><span style="font-size:11px;color:var(--c5)">Langdienst</span>
-      <span class="sh shS">S</span><span style="font-size:11px;color:var(--c5)">Spätdienst</span>
-      <span class="sh shN">N</span><span style="font-size:11px;color:var(--c5)">Nachtdienst</span>
-      <span class="sh shU">U</span><span style="font-size:11px;color:var(--c5)">Urlaub</span>
-    </div>`;
+  // ── Legend ──
+  html += `<div style="padding:2px 14px 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <span class="sh shL" style="font-size:8px">L</span><span style="font-size:10px;color:var(--c5)">Lang</span>
+    <span class="sh shS" style="font-size:8px">S</span><span style="font-size:10px;color:var(--c5)">Spät</span>
+    <span class="sh shN" style="font-size:8px">N</span><span style="font-size:10px;color:var(--c5)">Nacht</span>
+    <span class="sh shU" style="font-size:8px">U</span><span style="font-size:10px;color:var(--c5)">Urlaub</span>
+    <span style="font-size:9px;color:var(--c3);margin-left:auto">● offen  ● erledigt</span>
+  </div>`;
 
-  // Fairness
-  html += `
-    <div style="padding:0 16px 8px">
-      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--c6);margin-bottom:8px">Fortschritt</div>
+  // ── This week availability ──
+  const {l, i} = weekFree(weekOffset);
+  const wkLabel = weekOffset === 0 ? 'Diese Woche' : weekOffset < 0 ? `${Math.abs(weekOffset)} Wo. zurück` : `${weekOffset} Wo. vor`;
+  html += `<div style="padding:0 14px 10px">
+    <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">${wkLabel}</div>
+    <div style="display:flex;gap:7px">
+      <div class="day-avail-card" style="background:var(--sage-l);border-color:rgba(78,110,82,.15)">
+        <div style="font-size:10px;color:var(--sage-d);font-weight:700;letter-spacing:.3px">LUCAS</div>
+        <div style="font-size:20px;font-weight:700;font-family:'Fraunces',serif;color:var(--sage)">~${l}h</div>
+        <div style="font-size:10px;color:var(--sage-d);opacity:.7;margin-top:1px">frei</div>
+      </div>
+      <div class="day-avail-card" style="background:var(--lav-l);border-color:rgba(114,100,160,.15)">
+        <div style="font-size:10px;color:var(--lav-d);font-weight:700;letter-spacing:.3px">ISABELL</div>
+        <div style="font-size:20px;font-weight:700;font-family:'Fraunces',serif;color:var(--lav)">~${i}h</div>
+        <div style="font-size:10px;color:var(--lav-d);opacity:.7;margin-top:1px">frei</div>
+      </div>
     </div>
-    <div class="card"><div class="card-body-pad" style="padding-bottom:6px">
-      ${ring('Lucas', lD, lT.length, lP, '#4e6e52')}
-      ${ring('Isabell', iD, iT.length, iP, '#7264a0').replace('border-bottom:1px solid var(--c2)', 'border-bottom:none')}
-    </div></div>`;
+  </div>`;
 
-  // Fairness history
+  // ── Fortschritt (compact rings) ──
+  const R = 15, circ = +(2 * Math.PI * R).toFixed(1);
+  function miniRing(pct, color) {
+    const off = +(circ - pct / 100 * circ).toFixed(1);
+    return `<svg width="38" height="38" viewBox="0 0 38 38" style="transform:rotate(-90deg)">
+      <circle fill="none" stroke="var(--c2)" stroke-width="4" cx="19" cy="19" r="${R}"/>
+      <circle fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"
+        cx="19" cy="19" r="${R}" stroke-dasharray="${circ}" stroke-dashoffset="${off}"/>
+    </svg>`;
+  }
+  html += `<div style="padding:0 14px 10px">
+    <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Fortschritt</div>
+    <div style="background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);box-shadow:var(--sh);display:flex;gap:0">
+      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;border-right:1px solid var(--c2)">
+        <div style="position:relative;width:38px;height:38px;flex-shrink:0">
+          ${miniRing(lP, 'var(--sage)')}
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--c6)">${lP}%</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--c6)">Lucas</div>
+          <div style="font-size:11px;color:var(--c4)">${lD}/${lT.length}</div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px">
+        <div style="position:relative;width:38px;height:38px;flex-shrink:0">
+          ${miniRing(iP, 'var(--lav)')}
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--c6)">${iP}%</div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--c6)">Isabell</div>
+          <div style="font-size:11px;color:var(--c4)">${iD}/${iT.length}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // ── Fairness history ──
   if (fairLog.length > 0) {
-    html += `
-      <div style="padding:14px 16px 8px;font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:var(--c6)">Verlauf</div>
-      <div class="card"><div class="card-body-pad">`;
-    [...fairLog].reverse().forEach(row => {
+    html += `<div style="padding:0 14px 10px">
+      <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Verlauf</div>
+      <div style="background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 14px">`;
+    [...fairLog].slice(0, 5).reverse().forEach(row => {
       const tot = row.lucas_done + row.isabell_done;
       const lp = tot ? Math.round(row.lucas_done / tot * 100) : 50;
-      html += `
-        <div style="margin-bottom:12px">
-          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
-            <span style="color:var(--c4)">${row.week_key}</span>
-            <span style="color:var(--sage-d);font-weight:600">L: ${row.lucas_done}</span>
-            <span style="color:var(--lav-d);font-weight:600">I: ${row.isabell_done}</span>
-          </div>
-          <div class="fair-bar">
-            <div class="fair-l" style="width:${lp}%"></div>
-            <div class="fair-i" style="width:${100-lp}%"></div>
-          </div>
-        </div>`;
+      html += `<div style="margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+          <span style="color:var(--c4)">${row.week_key}</span>
+          <span style="color:var(--sage-d);font-weight:600">L ${row.lucas_done}</span>
+          <span style="color:var(--lav-d);font-weight:600">I ${row.isabell_done}</span>
+        </div>
+        <div class="fair-bar" style="height:14px;border-radius:7px">
+          <div class="fair-l" style="width:${lp}%"></div>
+          <div class="fair-i" style="width:${100-lp}%"></div>
+        </div>
+      </div>`;
     });
     html += `</div></div>`;
   }
 
-  // ── AUFGABEN VERWALTEN ──
-  html += `
-    <div class="org-section">
-      <div class="org-section-head">
-        <div class="org-section-title">
-          ⚙️ Aufgaben verwalten
-        </div>
-        <button class="btn-primary" onclick="openTaskModal()">+ Neu</button>
-      </div>
-    </div>`;
+  html += `<div style="height:80px"></div>`;
+  return html;
+}
 
+/* ══════════════════════════════════════════
+   DAY SHEET
+══════════════════════════════════════════ */
+function openDaySheet(dateStr) {
+  selectedCalDay = dateStr;
+  document.getElementById('daySheetBody').innerHTML = renderDaySheetContent(dateStr);
+  openModal('daySheet');
+  // Re-render calendar to show selected state
+  if (activeTab === 4) {
+    const el = document.getElementById('content');
+    el.innerHTML = renderKalender();
+  }
+}
+
+function renderDaySheetContent(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const dow = (d.getDay() + 6) % 7; // 0=Mo
+  const dateLabel = d.toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  const sh = shifts[dateStr];
+  const shiftInfo = {
+    L:'Langdienst (6:30–19:30)', S:'Spätdienst (13:30–19:30)',
+    N:'Nachtdienst (19:00–7:00)', U:'Urlaub / Frei'
+  };
+  const iHours = isabellFree(dateStr);
+  const lHours = lucasFree(dateStr);
+  const wk = weekKeyForDate(dateStr);
+  const wkOff = weekOffsetForDate(dateStr);
+
+  let html = `<div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--c6);margin-bottom:12px">${dateLabel}</div>`;
+
+  // Availability cards
+  html += `<div style="display:flex;gap:7px;margin-bottom:14px">
+    <div class="day-avail-card" style="background:var(--lav-l);border-color:rgba(114,100,160,.15)">
+      <div style="font-size:10px;color:var(--lav-d);font-weight:700;letter-spacing:.3px">ISABELL</div>
+      ${sh ? `<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="sh sh${sh}" style="font-size:9px">${sh}</span><span style="font-size:11px;color:var(--c5)">${shiftInfo[sh]}</span></div>` : `<div style="font-size:11px;color:var(--c4);margin-top:4px">Kein Dienst</div>`}
+      <div style="font-size:17px;font-weight:700;font-family:'Fraunces',serif;color:var(--lav);margin-top:4px">~${iHours}h frei</div>
+    </div>
+    <div class="day-avail-card" style="background:var(--sage-l);border-color:rgba(78,110,82,.15)">
+      <div style="font-size:10px;color:var(--sage-d);font-weight:700;letter-spacing:.3px">LUCAS</div>
+      <div style="font-size:11px;color:var(--c4);margin-top:4px">${lHours >= 8 ? 'Wochenende 🎉' : lHours > 0 ? 'Feierabend' : 'Nicht verfügbar'}</div>
+      <div style="font-size:17px;font-weight:700;font-family:'Fraunces',serif;color:var(--sage);margin-top:4px">~${lHours}h frei</div>
+    </div>
+  </div>`;
+
+  // Tasks for this day
+  const dayTasks = getTasksForCalDay(dateStr);
+  if (dayTasks.length > 0) {
+    html += `<div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Aufgaben</div>
+    <div style="border:1px solid var(--c2);border-radius:var(--r);overflow:hidden;margin-bottom:14px">`;
+    dayTasks.forEach((t, idx) => {
+      const done = !!(comps[wk] && comps[wk][t.id]);
+      const who = assignTask(t.assign, t.id, wkOff);
+      const whoCls = who === 'lucas' ? 'who-l' : who === 'isabell' ? 'who-i' : 'who-b';
+      const whoTxt = who === 'lucas' ? 'Lucas' : who === 'isabell' ? 'Isabell' : 'Beide';
+      const rText = {daily:'tägl.',weekly:'wöch.',biweekly:'2-wöch.',once:'einm.'}[t.recur] || 'wöch.';
+      const isLast = idx === dayTasks.length - 1;
+      const durMin = t.duration_min || 30;
+      const durLabel = durMin < 60 ? `${durMin}min` : `${durMin/60}h`;
+      html += `
+        <div class="day-task-item" style="border-bottom:${isLast ? 'none' : '1px solid var(--c2)'}" onclick="toggleTask(${t.id},'${wk}');refreshDaySheet('${dateStr}')">
+          <div class="day-task-cb ${done ? 'done' : ''}"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:14px;font-weight:500;color:${done ? 'var(--c4)' : 'var(--c6)'};text-decoration:${done ? 'line-through' : 'none'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</div>
+            <div style="font-size:11px;color:var(--c4);margin-top:1px">${rText} · ~${durLabel}</div>
+          </div>
+          <span class="who-badge ${whoCls}" style="font-size:10px;padding:3px 7px">${whoTxt}</span>
+        </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div style="text-align:center;padding:14px;color:var(--c4);font-size:13px;margin-bottom:10px">Keine tagsspezifischen Aufgaben</div>`;
+  }
+
+  // Shift button
+  html += `<button class="btn-ghost" style="width:100%;padding:12px;font-size:14px;border-radius:var(--r)" onclick="closeModal('daySheet');openShiftFor('${dateStr}')">
+    ${sh ? '✏️ Schicht bearbeiten' : '📋 Schicht eintragen'}
+  </button>`;
+
+  return html;
+}
+
+function refreshDaySheet(dateStr) {
+  // Re-render the day sheet body after a task toggle (without closing the sheet)
+  const el = document.getElementById('daySheetBody');
+  if (el) el.innerHTML = renderDaySheetContent(dateStr);
+  render(); // also update the calendar grid dots
+}
+
+/* ══════════════════════════════════════════
+   MANAGEMENT SHEET
+══════════════════════════════════════════ */
+function openMgmtSheet() {
+  document.getElementById('mgmtSheetBody').innerHTML = renderMgmtContent();
+  openModal('mgmtSheet');
+}
+
+function renderMgmtContent() {
   const cats = [
     {id:'putz',  icon:'🧹', label:'Putzen'},
     {id:'garten',icon:'🌿', label:'Garten'},
     {id:'todo',  icon:'📋', label:'To-Dos'},
   ];
-
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--c6)">⚙️ Aufgaben verwalten</div>
+    <button class="btn-primary" onclick="closeModal('mgmtSheet');openTaskModal()">+ Neu</button>
+  </div>`;
   cats.forEach(cat => {
-    // All tasks in this cat (active + paused)
     const allCatTasks = allTasksRaw.filter(t => t.cat === cat.id);
-    const activeCnt = allCatTasks.filter(t => t.active).length;
-    const pausedCnt = allCatTasks.filter(t => !t.active).length;
-    if (allCatTasks.length === 0) return;
-
-    html += `
-      <div class="org-section">
-        <div class="org-section-head">
-          <div class="org-section-title">
-            ${cat.icon} ${cat.label}
-            <span class="org-badge">${activeCnt} aktiv</span>
-            ${pausedCnt > 0 ? `<span class="org-badge paused-badge">${pausedCnt} pausiert</span>` : ''}
-          </div>
-          <button class="btn-ghost" style="font-size:12px" onclick="openTaskModal('${cat.id}')">+ Neu</button>
+    const activeCnt = allCatTasks.filter(t => t.active !== false).length;
+    const pausedCnt = allCatTasks.filter(t => t.active === false).length;
+    html += `<div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:var(--c6);display:flex;align-items:center;gap:6px">
+          ${cat.icon} ${cat.label}
+          <span class="org-badge">${activeCnt} aktiv</span>
+          ${pausedCnt > 0 ? `<span class="org-badge paused-badge">${pausedCnt}</span>` : ''}
         </div>
-        <div class="card"><div class="card-body">`;
-
-    allCatTasks.forEach(t => {
-      const rText = {daily:'tägl.', biweekly:'2-wöch.', once:'einm.', weekly:'wöch.', '2xweekly':'2x/Wo'}[t.recur] || 'wöch.';
-      const assignTxt = t.assign === 'auto' ? 'Auto' : t.assign === 'both' ? 'Beide' : t.assign === 'lucas' ? 'Lucas' : 'Isabell';
-      const isPaused = t.active === false;
-      html += `
-        <div class="mgmt-row">
+        <button class="btn-ghost" style="font-size:11px;padding:5px 10px" onclick="closeModal('mgmtSheet');openTaskModal('${cat.id}')">+ Neu</button>
+      </div>`;
+    if (allCatTasks.length > 0) {
+      html += `<div style="border:1px solid var(--c2);border-radius:var(--r);overflow:hidden">`;
+      allCatTasks.forEach((t, idx) => {
+        const rText = {daily:'tägl.',biweekly:'2-wöch.',once:'einm.',weekly:'wöch.','2xweekly':'2x/Wo'}[t.recur] || 'wöch.';
+        const assignTxt = {auto:'Auto',both:'Beide',lucas:'Lucas',isabell:'Isabell'}[t.assign] || 'Auto';
+        const isPaused = t.active === false;
+        const isLast = idx === allCatTasks.length - 1;
+        html += `<div class="mgmt-row" style="padding:10px 12px;border-bottom:${isLast ? 'none' : '1px solid var(--c2)'}">
           <div class="mgmt-info">
             <div class="mgmt-name ${isPaused ? 'paused' : ''}">${t.name}</div>
             <div class="mgmt-meta">
-              <span>${rText}</span>
-              ${t.day ? `<span>· ${t.day}</span>` : ''}
-              <span>· ${assignTxt}</span>
+              <span>${rText}</span>${t.day ? `<span>· ${t.day}</span>` : ''}<span>· ${assignTxt}</span>
+              ${t.duration_min ? `<span>· ${t.duration_min < 60 ? t.duration_min+'min' : t.duration_min/60+'h'}</span>` : ''}
               ${isPaused ? '<span style="color:var(--terra);font-weight:600">· pausiert</span>' : ''}
             </div>
           </div>
           <div class="mgmt-actions">
-            <button class="mgmt-btn mgmt-btn-edit" onclick="mgmtEdit(${t.id})" title="Bearbeiten">✏️</button>
+            <button class="mgmt-btn mgmt-btn-edit" onclick="closeModal('mgmtSheet');mgmtEdit(${t.id})" title="Bearbeiten">✏️</button>
             ${isPaused
-              ? `<button class="mgmt-btn mgmt-btn-play" onclick="mgmtTogglePause(${t.id}, true)" title="Aktivieren">▶</button>`
-              : `<button class="mgmt-btn mgmt-btn-pause" onclick="mgmtTogglePause(${t.id}, false)" title="Pausieren">⏸</button>`
-            }
-            <button class="mgmt-btn mgmt-btn-del" onclick="mgmtDelete(${t.id}, '${t.name.replace(/'/g,"\'")}')" title="Löschen">🗑</button>
+              ? `<button class="mgmt-btn mgmt-btn-play" onclick="mgmtTogglePause(${t.id},true)" title="Aktivieren">▶</button>`
+              : `<button class="mgmt-btn mgmt-btn-pause" onclick="mgmtTogglePause(${t.id},false)" title="Pausieren">⏸</button>`}
+            <button class="mgmt-btn mgmt-btn-del" onclick="mgmtDelete(${t.id},'${t.name.replace(/'/g,"\\'")}')" title="Löschen">🗑</button>
           </div>
         </div>`;
-    });
-
-    html += `</div></div></div>`;
+      });
+      html += `</div>`;
+    } else {
+      html += `<div style="font-size:13px;color:var(--c4);padding:6px 0">Noch keine Aufgaben</div>`;
+    }
+    html += `</div>`;
   });
-
-  html += `<div style="height:16px"></div>`;
   return html;
+}
+
+function refreshMgmtSheet() {
+  const el = document.getElementById('mgmtSheetBody');
+  if (el) el.innerHTML = renderMgmtContent();
 }
 
 /* ══════════════════════════════════════════
    ACTIONS — TASKS
 ══════════════════════════════════════════ */
-async function toggleTask(id) {
-  const wk = weekKey(), wasDone = isDone(id);
+async function toggleTask(id, wkOverride) {
+  const wk = wkOverride || weekKey();
+  const wasDone = !!(comps[wk] && comps[wk][id]);
   // Optimistic UI
   if (!comps[wk]) comps[wk] = {};
   if (wasDone) delete comps[wk][id];
@@ -1838,6 +2133,7 @@ function openTaskModal(cat) {
   document.getElementById('fRecur').value = 'weekly';
   document.getElementById('fDay').value = '';
   document.getElementById('fPrio').value = 'med';
+  document.getElementById('fDuration').value = '30';
   document.getElementById('taskModalTitle').textContent = taskModalCat === 'garten' ? '🌿 Gartenaufgabe' : taskModalCat === 'putz' ? '🧹 Putzaufgabe' : '📋 To-Do';
   // Reset hint
   onRecurChange('weekly');
@@ -1853,11 +2149,12 @@ async function saveTask() {
   const recur  = document.getElementById('fRecur').value;
   const prio   = document.getElementById('fPrio').value;
   const day    = document.getElementById('fDay').value;
+  const duration_min = parseInt(document.getElementById('fDuration').value, 10) || 30;
   closeModal('taskModal');
 
   // 2x wöchentlich → automatisch zwei Einträge anlegen (Mo-Mi + Do-So)
   if (!taskId && recur === '2xweekly') {
-    const base = {name, assign, recur:'weekly', prio, fixed: assign!=='auto'&&assign!=='both', active:true, cat:taskModalCat};
+    const base = {name, assign, recur:'weekly', prio, duration_min, fixed: assign!=='auto'&&assign!=='both', active:true, cat:taskModalCat};
     const [r1, r2] = await Promise.all([
       SB.from('tasks').insert({...base, day:'Mo-Mi'}).select().single(),
       SB.from('tasks').insert({...base, day:'Do-So'}).select().single(),
@@ -1869,7 +2166,7 @@ async function saveTask() {
     return;
   }
 
-  const updates = {name, assign, recur, prio, day, fixed: assign!=='auto'&&assign!=='both'};
+  const updates = {name, assign, recur, prio, day, duration_min, fixed: assign!=='auto'&&assign!=='both'};
 
   if (taskId) {
     // Edit existing — reload from DB so all weeks see updated data
@@ -2247,6 +2544,7 @@ function ctxEdit() {
   document.getElementById('fRecur').value = task.recur;
   document.getElementById('fDay').value = task.day || '';
   document.getElementById('fPrio').value = task.prio;
+  document.getElementById('fDuration').value = String(task.duration_min || 30);
   document.getElementById('taskModalTitle').textContent = '✏️ Aufgabe bearbeiten';
   // Store editing ID
   editingTaskId = task.id;
@@ -2284,6 +2582,7 @@ async function mgmtTogglePause(taskId, makeActive) {
   allTasksRaw = fresh.data || allTasksRaw;
   tasks = allTasksRaw.filter(row => row.active !== false);
   render();
+  refreshMgmtSheet();
 }
 
 function mgmtEdit(taskId) {
@@ -2296,6 +2595,7 @@ function mgmtEdit(taskId) {
   document.getElementById('fRecur').value = task.recur;
   document.getElementById('fDay').value = task.day || '';
   document.getElementById('fPrio').value = task.prio || 'med';
+  document.getElementById('fDuration').value = String(task.duration_min || 30);
   document.getElementById('taskModalTitle').textContent = '✏️ Aufgabe bearbeiten';
   onRecurChange(task.recur);
   openModal('taskModal');
@@ -2308,6 +2608,7 @@ async function mgmtDelete(taskId, taskName) {
   allTasksRaw = allTasksRaw.filter(t => String(t.id) !== String(taskId));
   tasks = allTasksRaw.filter(row => row.active !== false);
   render();
+  refreshMgmtSheet();
   // Hard DELETE — distinguishes "deleted" from "paused" (active:false)
   const { data: deleted, error } = await SB.from('tasks').delete().eq('id', taskId).select('id');
   if (error || !deleted || deleted.length === 0) {
@@ -2316,6 +2617,7 @@ async function mgmtDelete(taskId, taskName) {
     allTasksRaw = fresh.data || allTasksRaw;
     tasks = allTasksRaw.filter(row => row.active !== false);
     render();
+    refreshMgmtSheet();
     alert('Löschen fehlgeschlagen.');
   }
 }
