@@ -1295,12 +1295,12 @@ function taskRowHTML(task, assigned, day) {
   const wk = weekKey();
   const ovr = weekOverrides[wk] && weekOverrides[wk][task.id];
   const ovrBadge = ovr ? `<span style="font-size:9px;color:var(--lav-d);font-weight:700;margin-left:2px">↷ ${ovr}</span>` : '';
-  // "Done by" note — shown when someone completes another person's task
+  // "Done by" note — shown when someone completes another person's task, or any "both" task
   let doneByNote = '';
-  if (done && assigned !== 'both') {
+  if (done) {
     const comp = comps[wk] && comps[wk][task.id];
     const doneBy = comp && comp.done_by;
-    if (doneBy && doneBy !== assigned) {
+    if (doneBy && (assigned === 'both' || doneBy !== assigned)) {
       const doneByName = doneBy === 'lucas' ? 'Lucas' : 'Isabell';
       const noteColor = doneBy === 'lucas' ? 'var(--sage-d)' : 'var(--lav-d)';
       doneByNote = `<span style="font-size:10px;color:${noteColor};font-weight:600;margin-left:2px">· von ${doneByName}</span>`;
