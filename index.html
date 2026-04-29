@@ -50,6 +50,26 @@
   --nav-h:56px;
 }
 
+/* ── Dark Mode ── */
+[data-theme="dark"] {
+  --c0:#1c1813;
+  --c1:#231f19;
+  --c2:#2e2920;
+  --c3:#3a342a;
+  --c4:#6b6054;
+  --c5:#b0a088;
+  --c6:#f0e8d8;
+  --sh:0 1px 4px rgba(0,0,0,.3),0 2px 12px rgba(0,0,0,.2);
+  --sage-l:#192b1c;
+  --sage-d:#7ab880;
+  --lav-l:#1c1a2e;
+  --lav-d:#a898d8;
+  --gold-l:#201a0a;
+  --gold-d:#d4a040;
+  --terra-l:#241410;
+  --terra-d:#e07050;
+}
+
 html,body{height:100%;overflow:hidden;background:var(--c0);max-width:100vw}
 body{
   font-family:'DM Sans',sans-serif;font-size:15px;
@@ -1179,6 +1199,15 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
       </select>
     </div>
     <div>
+      <span class="field-label">Wiederholung</span>
+      <select class="field-select" id="evRecur">
+        <option value="none">Einmalig</option>
+        <option value="weekly">🔁 Wöchentlich</option>
+        <option value="monthly">🔁 Monatlich</option>
+        <option value="yearly">🔁 Jährlich</option>
+      </select>
+    </div>
+    <div>
       <span class="field-label">Von Datum</span>
       <input class="field-input" id="evDate" type="date">
     </div>
@@ -1188,11 +1217,16 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     </div>
     <div>
       <span class="field-label">Uhrzeit von</span>
-      <input class="field-input" id="evStart" type="time">
+      <input class="field-input" id="evStart" type="time" oninput="checkOvernight()">
     </div>
     <div>
       <span class="field-label">Uhrzeit bis</span>
-      <input class="field-input" id="evEnd" type="time">
+      <input class="field-input" id="evEnd" type="time" oninput="checkOvernight()">
+    </div>
+    <div class="span2" id="overnightHint" style="display:none">
+      <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:var(--r);padding:8px 10px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:6px">
+        🌙 Geht über Mitternacht — Bis-Datum wird automatisch auf den Folgetag gesetzt
+      </div>
     </div>
     <div class="span2">
       <span class="field-label">Notiz (optional)</span>
@@ -1299,6 +1333,69 @@ function weekKey(offset = weekOffset) {
   return `${d.getFullYear()}-W${String(weekNum(d)).padStart(2,'0')}`;
 }
 function todayStr() { return fmtDate(new Date()); }
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return fmtDate(d);
+}
+
+/* ── Dark Mode ── */
+function toggleDarkMode() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('zuhause_theme', next);
+  if (activeTab === 0) render(); // refresh hero button icon
+}
+// Init on load
+(function() {
+  const saved = localStorage.getItem('zuhause_theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'dark' || (!saved && prefersDark)) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+
+/* ── Recurring event helpers ── */
+function eventAppliesTo(e, dateStr) {
+  if (dateStr < e.event_date) return false; // before first occurrence
+  if (!e.recur || e.recur === 'none') {
+    return e.event_date <= dateStr && (e.end_date || e.event_date) >= dateStr;
+  }
+  const base = new Date(e.event_date + 'T12:00:00');
+  const target = new Date(dateStr + 'T12:00:00');
+  if (e.recur === 'yearly')  return target.getMonth() === base.getMonth() && target.getDate() === base.getDate();
+  if (e.recur === 'monthly') return target.getDate() === base.getDate();
+  if (e.recur === 'weekly')  return target.getDay() === base.getDay();
+  return false;
+}
+// Returns the event object with the concrete occurrence date (for agenda lists)
+function occurrencesInRange(e, fromStr, toStr) {
+  if (!e.recur || e.recur === 'none') {
+    return eventAppliesTo(e, fromStr) || (e.event_date >= fromStr && e.event_date <= toStr)
+      ? [e] : [];
+  }
+  const results = [];
+  const to = new Date(toStr + 'T12:00:00');
+  let cur = new Date(e.event_date + 'T12:00:00');
+  // fast-forward to range
+  while (fmtDate(cur) < fromStr) {
+    if (e.recur === 'yearly')  cur.setFullYear(cur.getFullYear() + 1);
+    else if (e.recur === 'monthly') cur.setMonth(cur.getMonth() + 1);
+    else if (e.recur === 'weekly')  cur.setDate(cur.getDate() + 7);
+    else break;
+  }
+  let safety = 0;
+  while (cur <= to && safety++ < 60) {
+    const ds = fmtDate(cur);
+    if (ds >= fromStr && ds <= toStr) results.push({...e, event_date: ds, _recurBase: e.id});
+    if (e.recur === 'yearly')  cur.setFullYear(cur.getFullYear() + 1);
+    else if (e.recur === 'monthly') cur.setMonth(cur.getMonth() + 1);
+    else if (e.recur === 'weekly')  cur.setDate(cur.getDate() + 7);
+    else break;
+  }
+  return results;
+}
 
 /* ══════════════════════════════════════════
    AVAILABILITY ENGINE
@@ -1743,10 +1840,17 @@ function renderHeute(dates) {
   let html = '';
 
   // ── Hero ──
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const themeIcon = isDark ? '☀️' : '🌙';
   const heroDateLabel = new Date().toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long'});
   html += `<div class="p-hero ${heroClass}" style="margin-bottom:0">
-    <div class="p-hero-name">${greet}, ${myName}! ${emoji}</div>
-    <div class="p-hero-date">${heroDateLabel}</div>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div class="p-hero-name">${greet}, ${myName}! ${emoji}</div>
+        <div class="p-hero-date">${heroDateLabel}</div>
+      </div>
+      <button onclick="toggleDarkMode()" title="Dark Mode" style="background:rgba(255,255,255,.18);border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">${themeIcon}</button>
+    </div>
   </div>`;
 
   // ── Day selector strip ──
@@ -1756,7 +1860,7 @@ function renderHeute(dates) {
     const sh = shifts[ds];
     const isToday = ds === today;
     const isSel = idx === selIdx;
-    const hasEvts = calendarEvents.some(e => e.event_date <= ds && (e.end_date || e.event_date) >= ds);
+    const hasEvts = calendarEvents.some(e => eventAppliesTo(e, ds));
     let indicator = '';
     if (sh) indicator = `<span class="sh sh${sh}" style="font-size:6px;padding:1px 2px;line-height:1.4">${sh}</span>`;
     else if (hasEvts) indicator = `<span style="width:5px;height:5px;background:${isSel?'#fff':myC};border-radius:50%;display:inline-block;margin-top:1px"></span>`;
@@ -1781,7 +1885,7 @@ function renderHeute(dates) {
 
   // ── Events for selected day ──
   const selShift = shifts[selStr];
-  const dayEvts = calendarEvents.filter(e => e.event_date <= selStr && (e.end_date || e.event_date) >= selStr);
+  const dayEvts = calendarEvents.filter(e => eventAppliesTo(e, selStr)).map(e => ({...e, event_date: selStr}));
   const myEvts = dayEvts.filter(e => e.person === activeUser || e.person === 'both');
   const partnerEvts = dayEvts.filter(e => partnerName && e.person === (isLucas ? 'isabell' : 'lucas'));
   const typeIcon = (t) => ({event:'📅',absence:'✈️',birthday:'🎂',note:'📝'}[t] || '📅');
@@ -1789,9 +1893,22 @@ function renderHeute(dates) {
 
   html += `<div style="padding:6px 16px 0">`;
 
+  // Nachtdienst-Fortsetzung vom Vortag (0:00–7:00)
+  const selPrevShift = shifts[addDays(selStr, -1)];
+  if (selPrevShift === 'N') {
+    html += `<div class="evt-card" style="background:rgba(229,231,235,.5);border-color:rgba(100,100,100,.15);opacity:.85;margin-bottom:6px">
+      <div class="evt-bar evt-bar-i" style="opacity:.5"></div>
+      <div style="flex:1">
+        <div class="evt-title" style="color:var(--c4)">◀ Nachtdienst (Fortsetzung)</div>
+        <div class="evt-time">0:00 – 7:00</div>
+      </div>
+    </div>`;
+  }
+
   // Isabell's own shift card
   if (isIsabell && selShift) {
-    const sLabel = {L:'Langdienst · 6:30–19:30',S:'Spätdienst · 13:30–19:30',N:'Nachtdienst · 19:00–7:00',U:'Urlaub / Frei'}[selShift] || selShift;
+    const nightStr = selShift === 'N' ? '19:00 – 0:00 (bis 7:00 Folgetag →)' : '';
+    const sLabel = selShift === 'N' ? `Nachtdienst · ${nightStr}` : ({L:'Langdienst · 6:30–19:30',S:'Spätdienst · 13:30–19:30',U:'Urlaub / Frei'}[selShift] || selShift);
     html += `<div class="evt-card" style="background:${myCl};border-color:${myBorder};margin-bottom:6px">
       <div class="evt-bar evt-bar-i"></div>
       <div style="flex:1"><div class="evt-title"><span class="sh sh${selShift}">${selShift}</span> ${sLabel}</div></div>
@@ -2093,11 +2210,14 @@ function renderKalender() {
     const isToday = ds === today;
     const isSelected = ds === selectedCalDay;
     // Events for this day (shift as bar + calendar events as bars)
-    const dayEvts = calendarEvents.filter(e => e.event_date <= ds && (e.end_date || e.event_date) >= ds);
+    const dayEvts = calendarEvents.filter(e => eventAppliesTo(e, ds));
+    const prevSh = shifts[addDays(ds, -1)];
+    const hasNightCont = prevSh === 'N';
     const shiftLabel = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[sh] || '';
     let evtBars = `<div class="kal-evts">`;
+    if (hasNightCont) evtBars += `<span class="cal-shift-bar cal-shift-N" style="opacity:.65">◀ –7:00</span>`;
     if (sh) evtBars += `<span class="cal-shift-bar cal-shift-${sh}">${sh} ${shiftLabel.slice(0,4)}</span>`;
-    const maxBars = sh ? 1 : 2;
+    const maxBars = (sh || hasNightCont) ? 0 : 2;
     dayEvts.slice(0, maxBars).forEach(e => {
       const cls = e.person === 'lucas' ? 'cal-evt-l' : e.person === 'isabell' ? 'cal-evt-i' : 'cal-evt-b';
       const short = e.title.length > 7 ? e.title.slice(0,6)+'…' : e.title;
@@ -2115,19 +2235,16 @@ function renderKalender() {
   }
   html += `</div>`;
 
-  // Monthly event list (upcoming or all in month)
-  const monthStr = `${calYear}-${String(calMonth).padStart(2,'0')}`;
-  // Only upcoming events (today or later) that fall in this month
+  // Monthly event list — upcoming only, recurring events expanded
   const monthStart = `${calYear}-${String(calMonth).padStart(2,'0')}-01`;
   const monthEnd = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
-  const monthEvts = calendarEvents.filter(e =>
-    e.event_date <= monthEnd &&
-    (e.end_date || e.event_date) >= monthStart &&
-    (e.end_date || e.event_date) >= today
-  );
+  const agendaFrom = today > monthStart ? today : monthStart; // skip past days
+  const monthEvts = calendarEvents.flatMap(e => occurrencesInRange(e, agendaFrom, monthEnd))
+    .sort((a,b) => a.event_date < b.event_date ? -1 : 1);
+
   if (monthEvts.length > 0) {
     html += `<div style="padding:8px 14px 4px">
-      <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px">Termine diesen Monat</div>
+      <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px">Nächste Termine</div>
     </div>`;
     monthEvts.forEach(e => {
       const dEvt = new Date(e.event_date + 'T12:00:00');
@@ -2135,13 +2252,14 @@ function renderKalender() {
       const barCls = e.person === 'lucas' ? 'evt-bar-l' : e.person === 'isabell' ? 'evt-bar-i' : 'evt-bar-b';
       const personTxt = e.person === 'lucas' ? 'Lucas' : e.person === 'isabell' ? 'Isabell' : 'Beide';
       const typeIcon = {event:'📅',absence:'✈️',birthday:'🎂',note:'📝'}[e.type] || '📅';
+      const recurIcon = {weekly:'🔁',monthly:'🔁',yearly:'🔁'}[e.recur] || '';
       const timeStr = (e.end_date && e.end_date !== e.event_date)
         ? ` · ${new Date(e.event_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})} – ${new Date(e.end_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})}`
         : (e.start_time ? ` · ${e.start_time}${e.end_time ? '–'+e.end_time : ''}` : '');
       html += `<div class="evt-card" style="margin:0 14px 6px" onclick="openEventModal('${e.event_date}', ${e.id})">
         <div class="evt-bar ${barCls}"></div>
         <div style="flex:1;min-width:0">
-          <div class="evt-title">${typeIcon} ${e.title}</div>
+          <div class="evt-title">${typeIcon} ${e.title} ${recurIcon}</div>
           <div class="evt-time">${dLabel}${timeStr} · ${personTxt}</div>
         </div>
       </div>`;
@@ -2206,11 +2324,14 @@ function renderDaySheetContent(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
   const dateLabel = d.toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
   const sh = shifts[dateStr];
+  const prevDayStr = addDays(dateStr, -1);
+  const prevSh = shifts[prevDayStr];
+  const hasNightCont = prevSh === 'N'; // Nachtdienst vom Vortag läuft bis 7:00
   const shiftLabels = {L:'Langdienst (6:30–19:30)',S:'Spätdienst (13:30–19:30)',N:'Nachtdienst (19:00–7:00)',U:'Urlaub / Frei'};
   const iHours = isabellFree(dateStr);
   const lHours = lucasFree(dateStr);
 
-  const dayEvts = calendarEvents.filter(e => e.event_date <= dateStr && (e.end_date || e.event_date) >= dateStr);
+  const dayEvts = calendarEvents.filter(e => eventAppliesTo(e, dateStr)).map(e => ({...e, event_date: dateStr}));
   const lEvts = dayEvts.filter(e => e.person === 'lucas');
   const iEvts = dayEvts.filter(e => e.person === 'isabell');
   const bEvts = dayEvts.filter(e => e.person === 'both');
@@ -2239,17 +2360,33 @@ function renderDaySheetContent(dateStr) {
   let html = `<div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--c6);margin-bottom:14px">${dateLabel}</div>`;
 
   // ── Isabell section ──
+  const isabelShiftBadge = sh ? `<span class="sh sh${sh}" style="margin-left:4px">${sh}</span>` : (hasNightCont ? `<span class="sh shN" style="margin-left:4px;opacity:.7">N</span>` : '');
   html += `<div class="evt-person-hdr" style="color:var(--lav-d)">
     <span style="width:8px;height:8px;background:var(--lav);border-radius:50%;display:inline-block"></span>
-    Isabell · ~${iHours}h frei
-    ${sh ? `<span class="sh sh${sh}" style="margin-left:4px">${sh}</span>` : ''}
+    Isabell ${isabelShiftBadge}
   </div>`;
+
+  // Nachtdienst-Fortsetzung vom Vortag (0:00–7:00)
+  if (hasNightCont) {
+    html += `<div class="evt-card" style="background:rgba(229,231,235,.5);border-color:rgba(100,100,100,.15);opacity:.85">
+      <div class="evt-bar evt-bar-i" style="opacity:.5"></div>
+      <div style="flex:1">
+        <div class="evt-title" style="color:var(--c4)">◀ Nachtdienst (Fortsetzung)</div>
+        <div class="evt-time">0:00 – 7:00 · von ${new Date(prevDayStr+'T12:00:00').toLocaleDateString('de',{weekday:'short',day:'numeric',month:'short'})}</div>
+      </div>
+    </div>`;
+  }
+
   if (sh) {
+    // Nachtdienst aufgeteilt: 19:00–0:00 heute, →7:00 Folgetag
+    const shiftTimeStr = sh === 'N'
+      ? '19:00 – 0:00 (bis 7:00 Folgetag →)'
+      : {L:'6:30–19:30',S:'13:30–19:30',U:'Frei / Urlaub'}[sh] || '';
     html += `<div class="evt-card" style="background:var(--lav-l);border-color:rgba(114,100,160,.2)">
       <div class="evt-bar evt-bar-i"></div>
       <div style="flex:1">
         <div class="evt-title">${shiftLabels[sh]}</div>
-        <div class="evt-time">${{L:'6:30–19:30',S:'13:30–19:30',N:'19:00–7:00',U:'Frei / Urlaub'}[sh] || ''}</div>
+        <div class="evt-time">${shiftTimeStr}</div>
       </div>
       <button class="mgmt-btn" style="background:none;border:1px solid rgba(114,100,160,.3);color:var(--lav-d);font-size:11px" onclick="event.stopPropagation();closeModal('daySheet');openShiftFor('${dateStr}')">✏️</button>
     </div>`;
@@ -2385,6 +2522,14 @@ function toggleTaskMgmt() {
 ══════════════════════════════════════════ */
 let _evPerson = 'lucas'; // tracks segment control state
 
+function checkOvernight() {
+  const s = document.getElementById('evStart').value;
+  const e = document.getElementById('evEnd').value;
+  const hint = document.getElementById('overnightHint');
+  if (!hint) return;
+  const isOvernight = s && e && s >= '18:00' && e <= '12:00';
+  hint.style.display = isOvernight ? 'block' : 'none';
+}
 function setEvPerson(person) {
   _evPerson = person;
   ['lucas','isabell','both'].forEach(p => {
@@ -2408,6 +2553,7 @@ function openEventModal(dateStr, personOrId) {
     document.getElementById('evType').value = ev.type || 'event';
     document.getElementById('evDate').value = ev.event_date;
     document.getElementById('evEndDate').value = ev.end_date || '';
+    document.getElementById('evRecur').value = ev.recur || 'none';
     document.getElementById('evStart').value = ev.start_time || '';
     document.getElementById('evEnd').value = ev.end_time || '';
     document.getElementById('evNote').value = ev.note || '';
@@ -2422,6 +2568,7 @@ function openEventModal(dateStr, personOrId) {
     document.getElementById('evType').value = 'event';
     document.getElementById('evDate').value = dateStr || todayStr();
     document.getElementById('evEndDate').value = '';
+    document.getElementById('evRecur').value = 'none';
     document.getElementById('evStart').value = '';
     document.getElementById('evEnd').value = '';
     document.getElementById('evNote').value = '';
@@ -2439,6 +2586,7 @@ async function saveCalEvent() {
     title,
     person: _evPerson,
     type: document.getElementById('evType').value,
+    recur: document.getElementById('evRecur').value || 'none',
     event_date: document.getElementById('evDate').value,
     end_date: document.getElementById('evEndDate').value || null,
     start_time: document.getElementById('evStart').value || null,
@@ -2446,6 +2594,12 @@ async function saveCalEvent() {
     note: document.getElementById('evNote').value.trim() || null,
   };
   if (!payload.event_date) { alert('Bitte Datum auswählen'); return; }
+  // Auto-detect overnight: start ≥ 18:00 AND end ≤ 12:00 AND no end_date set
+  if (payload.start_time && payload.end_time && !payload.end_date) {
+    if (payload.start_time >= '18:00' && payload.end_time <= '12:00') {
+      payload.end_date = addDays(payload.event_date, 1);
+    }
+  }
   const savedId = editingEventId;
   closeModal('eventModal');
   if (savedId) {
@@ -2471,7 +2625,8 @@ async function deleteCalEvent() {
   if (!editingEventId) return;
   const id = editingEventId;
   const ev = calendarEvents.find(e => e.id === id);
-  if (!confirm(`"${ev ? ev.title : 'Termin'}" wirklich löschen?`)) return;
+  const recurNote = ev && ev.recur && ev.recur !== 'none' ? '\n(Alle Wiederholungen werden gelöscht)' : '';
+  if (!confirm(`"${ev ? ev.title : 'Termin'}" wirklich löschen?${recurNote}`)) return;
   closeModal('eventModal');
   calendarEvents = calendarEvents.filter(e => e.id !== id);
   await SB.from('calendar_events').delete().eq('id', id);
