@@ -1436,12 +1436,22 @@ function assignTask(assign, taskId, off = weekOffset) {
   if (assign === 'isabell') return 'isabell';
   if (assign === 'both')    return 'both';
   // Auto: use weekly free hours for the correct week,
-  // subtract fixed-assigned tasks so they don't skew the balance
+  // subtract fixed-assigned tasks (excluding garden + once-off) so they don't skew the balance
   const {l, i} = weekFree(off);
-  const fixedLucas   = tasks.filter(t => t.assign === 'lucas'   && String(t.id) !== key && t.active !== false).length;
-  const fixedIsabell = tasks.filter(t => t.assign === 'isabell' && String(t.id) !== key && t.active !== false).length;
-  const scoreL = l - fixedLucas * 1.5;
-  const scoreI = i - fixedIsabell * 1.5;
+  const fixedTasks = tasks.filter(t =>
+    t.cat !== 'garten' &&
+    t.recur !== 'once' &&
+    t.active !== false &&
+    String(t.id) !== key &&
+    (t.assign === 'lucas' || t.assign === 'isabell')
+  );
+  const fixedLucas   = fixedTasks.filter(t => t.assign === 'lucas').length;
+  const fixedIsabell = fixedTasks.filter(t => t.assign === 'isabell').length;
+  // Extra penalty for night shifts (physically demanding, already count as 0 free hours)
+  const nightShifts = weekDates(off).filter(d => shifts[fmtDate(d)] === 'N').length;
+  const shiftPenalty = nightShifts * 3;
+  const scoreL = l - fixedLucas * 2;
+  const scoreI = i - fixedIsabell * 2 - shiftPenalty;
   return scoreL >= scoreI ? 'lucas' : 'isabell';
 }
 function bestDay(dates, person, dayRange) {
