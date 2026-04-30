@@ -961,6 +961,30 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
 </div>
 
 <!-- ══ MODAL: Benutzer wählen ══ -->
+<!-- ══ MODAL: Notiz ══ -->
+<div class="modal-bg" id="noteModal">
+<div class="modal-sheet">
+  <div class="modal-drag" onclick="closeModal('noteModal')"><div class="modal-drag-bar"></div></div>
+  <div class="modal-title">Notiz schreiben</div>
+  <div style="padding:0 20px 12px">
+    <span class="field-label">An</span>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button id="noteTo-both" onclick="setNoteTo('both')" style="flex:1;padding:9px 0;border-radius:20px;border:1.5px solid var(--sage);background:var(--sage);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Beide</button>
+      <button id="noteTo-lucas" onclick="setNoteTo('lucas')" style="flex:1;padding:9px 0;border-radius:20px;border:1.5px solid var(--c3);background:transparent;color:var(--c5);font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Lucas</button>
+      <button id="noteTo-isabell" onclick="setNoteTo('isabell')" style="flex:1;padding:9px 0;border-radius:20px;border:1.5px solid var(--c3);background:transparent;color:var(--c5);font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Isabell</button>
+    </div>
+  </div>
+  <div style="padding:0 20px 4px">
+    <span class="field-label">Nachricht</span>
+    <textarea id="noteContent" placeholder="Deine Notiz…" rows="4" style="width:100%;margin-top:6px;padding:12px;background:var(--c1);border:1.5px solid var(--c2);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--c6);resize:none;outline:none;line-height:1.5"></textarea>
+  </div>
+  <div class="modal-btns">
+    <button class="modal-cancel" onclick="closeModal('noteModal')">Abbrechen</button>
+    <button class="modal-save" onclick="saveNote()">Senden</button>
+  </div>
+</div>
+</div>
+
 <div class="modal-bg" id="userModal" style="background:rgba(42,30,10,.75)">
 <div class="modal-sheet" style="padding-bottom:calc(32px + var(--sab));border-radius:26px 26px 0 0">
   <div style="padding:28px 20px 0;text-align:center">
@@ -1296,6 +1320,8 @@ let comps = {}, shifts = {};
 let groceries = [], fairLog = [];
 let absences = new Set();
 let weekOverrides = {}, deferredTasks = {};
+let notes = [];
+let noteToUser = 'both';
 let calendarEvents = [];
 let taskMgmtOpen = localStorage.getItem('zuhause_taskMgmt') === 'true';
 let editingEventId = null;
@@ -1547,7 +1573,7 @@ async function loadAll() {
   setSync('loading');
   try {
     // Core data — must succeed
-    const [tRes, cRes, sRes, gRes, fRes, aRes, evRes] = await Promise.all([
+    const [tRes, cRes, sRes, gRes, fRes, aRes, evRes, nRes] = await Promise.all([
       SB.from('tasks').select('*').order('id'),
       SB.from('task_completions').select('*'),
       SB.from('shifts').select('*'),
@@ -1555,6 +1581,7 @@ async function loadAll() {
       SB.from('fairness_log').select('*').order('week_key', {ascending:false}).limit(10),
       SB.from('absences').select('*'),
       SB.from('calendar_events').select('*').order('event_date'),
+      SB.from('notes').select('*').order('created_at', {ascending:false}).limit(20),
     ]);
     allTasksRaw = tRes.data || [];
     tasks = allTasksRaw.filter(row => row.active !== false);
@@ -1569,6 +1596,7 @@ async function loadAll() {
     fairLog = fRes.data || [];
     absences = new Set((aRes.data || []).map(x => x.week_key));
     calendarEvents = evRes.data || [];
+    notes = nRes.data || [];
 
     // Overrides — optional, don't block core if fails
     weekOverrides = {}; deferredTasks = {};
@@ -1678,6 +1706,14 @@ function setupRealtime() {
         calendarEvents = r.data || [];
         render();
       });
+    })
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'notes'}, (payload) => {
+      if (!notes.find(n => n.id === payload.new.id)) notes.unshift(payload.new);
+      if (activeTab === 0) render();
+    })
+    .on('postgres_changes', {event:'DELETE', schema:'public', table:'notes'}, (payload) => {
+      notes = notes.filter(n => n.id !== payload.old.id);
+      if (activeTab === 0) render();
     })
     .subscribe(s => {
       if (s === 'SUBSCRIBED') setSync('ok');
@@ -1799,6 +1835,58 @@ function taskRowHTML(task, assigned, day) {
 /* ══════════════════════════════════════════
    TAB 0: HEUTE
 ══════════════════════════════════════════ */
+function relativeTime(isoStr) {
+  const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+  if (diff < 60) return 'gerade eben';
+  if (diff < 3600) return `vor ${Math.floor(diff/60)}m`;
+  if (diff < 86400) return `vor ${Math.floor(diff/3600)}h`;
+  return `vor ${Math.floor(diff/86400)}d`;
+}
+
+function renderNotizen() {
+  const authorColor = {
+    lucas:   {bg:'var(--sage-l)', dot:'var(--sage)',  name:'var(--sage-d)',  label:'Lucas'},
+    isabell: {bg:'var(--lav-l)',  dot:'var(--lav)',   name:'var(--lav-d)',   label:'Isabell'},
+  };
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--c4)">Notizen</div>
+    <button onclick="openNoteModal()" style="background:var(--c1);border:1px solid var(--c2);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:var(--sage-d);cursor:pointer;font-family:'DM Sans',sans-serif">+ Neu</button>
+  </div>`;
+
+  if (notes.length === 0) {
+    html += `<div onclick="openNoteModal()" style="margin:0 16px 4px;background:var(--c1);border:1px dashed var(--c3);border-radius:var(--rl);padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">📝</span>
+      <span style="font-size:13px;color:var(--c4);font-weight:500">Notiz für Lucas oder Isabell schreiben…</span>
+    </div>`;
+    return html;
+  }
+
+  const visible = notes.slice(0, 3);
+  html += `<div style="margin:0 16px;display:flex;flex-direction:column;gap:7px">`;
+  visible.forEach(n => {
+    const ac = authorColor[n.author] || authorColor.lucas;
+    const toLabel = n.to_user === 'both' ? '' : `<span style="font-size:11px;color:var(--c4)">→ ${n.to_user === 'lucas' ? 'Lucas' : 'Isabell'}</span>`;
+    html += `<div style="background:${ac.bg};border-radius:14px;padding:11px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${ac.dot};flex-shrink:0"></span>
+          <span style="font-size:11px;font-weight:700;color:${ac.name}">${ac.label}</span>
+          ${toLabel}
+          <span style="font-size:11px;color:var(--c4)">· ${relativeTime(n.created_at)}</span>
+        </div>
+        <button onclick="deleteNote('${n.id}')" style="background:none;border:none;font-size:16px;color:var(--c4);cursor:pointer;line-height:1;padding:0 2px;font-family:'DM Sans',sans-serif">×</button>
+      </div>
+      <div style="font-size:14px;color:var(--c6);line-height:1.5;white-space:pre-wrap">${n.content.replace(/</g,'&lt;')}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  if (notes.length > 3) {
+    html += `<div style="text-align:center;padding:6px 0 2px;font-size:12px;color:var(--c4);font-weight:600">+${notes.length - 3} weitere</div>`;
+  }
+  return html;
+}
+
 function renderHeute(dates) {
   const today = todayStr();
   const hour = new Date().getHours();
@@ -1963,6 +2051,9 @@ function renderHeute(dates) {
   // + Termin button
   html += `<button onclick="openEventModal('${selStr}',activeUser||'both')" style="font-size:12px;padding:5px 12px;background:${myCl};color:${myCd};border:1px solid ${myBorder};border-radius:20px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer">+ Termin</button>`;
   html += `</div>`;
+
+  // ── Notizen ──
+  html += renderNotizen();
 
   // ── Task recommendations for selected day ──
   const recsDayMatch = myOpen.filter(t => taskMatchesDay(t, selDayName));
@@ -3199,6 +3290,51 @@ async function mgmtDelete(taskId, taskName) {
 
 // Close ctx on escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtx(); });
+
+/* ══════════════════════════════════════════
+   ACTIONS — NOTES
+══════════════════════════════════════════ */
+function openNoteModal() {
+  noteToUser = 'both';
+  document.getElementById('noteContent').value = '';
+  ['both','lucas','isabell'].forEach(v => {
+    const btn = document.getElementById(`noteTo-${v}`);
+    const active = v === 'both';
+    btn.style.background = active ? 'var(--sage)' : 'transparent';
+    btn.style.borderColor = active ? 'var(--sage)' : 'var(--c3)';
+    btn.style.color = active ? '#fff' : 'var(--c5)';
+  });
+  openModal('noteModal');
+  setTimeout(() => document.getElementById('noteContent').focus(), 300);
+}
+
+function setNoteTo(val) {
+  noteToUser = val;
+  const colors = { both: {bg:'var(--sage)',bd:'var(--sage)'}, lucas: {bg:'var(--sage)',bd:'var(--sage)'}, isabell: {bg:'var(--lav)',bd:'var(--lav)'} };
+  ['both','lucas','isabell'].forEach(v => {
+    const btn = document.getElementById(`noteTo-${v}`);
+    const active = v === val;
+    btn.style.background = active ? colors[val].bg : 'transparent';
+    btn.style.borderColor = active ? colors[val].bd : 'var(--c3)';
+    btn.style.color = active ? '#fff' : 'var(--c5)';
+  });
+}
+
+async function saveNote() {
+  const content = document.getElementById('noteContent').value.trim();
+  if (!content) return;
+  const author = activeUser || 'lucas';
+  const {data, error} = await SB.from('notes').insert({author, to_user: noteToUser, content}).select().single();
+  if (!error && data) notes.unshift(data);
+  closeModal('noteModal');
+  if (activeTab === 0) render();
+}
+
+async function deleteNote(id) {
+  notes = notes.filter(n => n.id !== id);
+  await SB.from('notes').delete().eq('id', id);
+  if (activeTab === 0) render();
+}
 
 function setUser(name) {
   activeUser = name;
