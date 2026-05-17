@@ -1322,6 +1322,7 @@ let absences = new Set();
 let weekOverrides = {}, deferredTasks = {};
 let notes = [];
 let noteToUser = 'both';
+let pushSettings = {};
 let calendarEvents = [];
 let taskMgmtOpen = localStorage.getItem('zuhause_taskMgmt') === 'true';
 let editingEventId = null;
@@ -1614,6 +1615,14 @@ async function loadAll() {
       console.warn('task_overrides load failed (non-critical):', ovErr);
     }
 
+    // Push settings — optional
+    try {
+      if (activeUser) {
+        const psRes = await SB.from('push_settings').select('*').eq('user_name', activeUser).maybeSingle();
+        pushSettings = psRes.data || {};
+      }
+    } catch(_) {}
+
     setSync('ok');
     render();
   } catch(e) {
@@ -1835,6 +1844,39 @@ function taskRowHTML(task, assigned, day) {
 /* ══════════════════════════════════════════
    TAB 0: HEUTE
 ══════════════════════════════════════════ */
+function renderPushSettings() {
+  const PUSH_ITEMS = [
+    { key:'neue_notiz',        icon:'📝', label:'Neue Notiz vom Partner',        sub:'Sofort bei neuer Notiz',           def:true  },
+    { key:'aufgabe_erledigt',  icon:'✅', label:'Aufgabe erledigt',              sub:'Wenn Partner eine Aufgabe abhakt', def:false },
+    { key:'neue_einkauf',      icon:'🛒', label:'Neuer Einkaufsartikel',         sub:'Wenn Partner etwas hinzufügt',    def:false },
+    { key:'kalender_reminder', icon:'📅', label:'Kalender-Erinnerung',           sub:'Tag vorher, 20:00 Uhr ✦',         def:true  },
+    { key:'taegl_aufgaben',    icon:'☀️', label:'Tägliche Aufgaben-Erinnerung',  sub:'Mo–Fr, 8:00 Uhr ✦',              def:true  },
+    { key:'wochenuebersicht',  icon:'📊', label:'Wochenübersicht',               sub:'Montag, 9:00 Uhr ✦',             def:true  },
+  ];
+  let html = `<div style="padding:0 16px 20px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--c4);padding:8px 0 8px">📬 Push-Einstellungen</div>
+    <div style="background:var(--c1);border:1px solid var(--c2);border-radius:var(--rl);overflow:hidden">`;
+  PUSH_ITEMS.forEach((s, i) => {
+    const val = pushSettings[s.key] !== undefined ? pushSettings[s.key] : s.def;
+    const border = i < PUSH_ITEMS.length - 1 ? 'border-bottom:1px solid var(--c2);' : '';
+    const trackBg = val ? 'var(--sage)' : 'var(--c3)';
+    const knobX   = val ? '20px' : '2px';
+    html += `<div style="display:flex;align-items:center;padding:11px 14px;${border}cursor:pointer" onclick="togglePushSetting('${s.key}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--c6)">${s.icon} ${s.label}</div>
+        <div style="font-size:11px;color:var(--c4);margin-top:1px">${s.sub}</div>
+      </div>
+      <div style="width:42px;height:24px;border-radius:12px;background:${trackBg};position:relative;flex-shrink:0;transition:background .2s">
+        <div style="position:absolute;top:2px;left:${knobX};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s"></div>
+      </div>
+    </div>`;
+  });
+  html += `</div>
+    <div style="font-size:11px;color:var(--c4);margin-top:6px;padding:0 2px">✦ Erfordert Cron-Aktivierung in Supabase</div>
+  </div>`;
+  return html;
+}
+
 function relativeTime(isoStr) {
   const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
   if (diff < 60) return 'gerade eben';
@@ -2121,11 +2163,15 @@ function renderHeute(dates) {
   }
 
   // ── Task management button ──
-  html += `<div style="padding:4px 16px 20px">
+  html += `<div style="padding:4px 16px 8px">
     <button onclick="openMgmtSheet()" style="width:100%;padding:13px 16px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);font-size:14px;font-weight:600;color:var(--c5);font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center">
       ⚙️ Aufgaben verwalten
     </button>
   </div>`;
+
+  // ── Push settings ──
+  html += renderPushSettings();
+
   return html;
 }
 
@@ -2765,6 +2811,14 @@ async function toggleTask(id, wkOverride) {
     const {data} = await SB.from('task_completions').insert({task_id:id, week_key:wk, done_by: activeUser||'lucas'}).select().single();
     if (!comps[wk]) comps[wk] = {};
     if (data) comps[wk][id] = data;
+    // Push wenn Setting aktiv
+    const doneEnabled = pushSettings.aufgabe_erledigt !== undefined ? pushSettings.aufgabe_erledigt : false;
+    if (doneEnabled) {
+      const t = tasks.find(t => t.id === id);
+      const doer = activeUser === 'lucas' ? 'Lucas' : 'Isabell';
+      const partner = activeUser === 'lucas' ? 'isabell' : 'lucas';
+      if (t) sendPushNotification(`✅ ${doer} hat erledigt`, t.name || 'Eine Aufgabe', partner);
+    }
   }
   saveFairness(wk);
 }
@@ -2885,7 +2939,16 @@ async function qaAdd() {
   const name = inp.value.trim();
   if (!name) return;
   const {data} = await SB.from('groceries').insert({name, cat:'Sonstiges', done:false, added_by: activeUser || 'lucas'}).select().single();
-  if (data) groceries.push(data);
+  if (data) {
+    groceries.push(data);
+    // Push an Partner wenn Setting aktiv
+    const grocEnabled = pushSettings.neue_einkauf !== undefined ? pushSettings.neue_einkauf : false;
+    if (grocEnabled) {
+      const adder = activeUser === 'lucas' ? 'Lucas' : 'Isabell';
+      const partner = activeUser === 'lucas' ? 'isabell' : 'lucas';
+      sendPushNotification(`🛒 ${adder} hat hinzugefügt`, name, partner);
+    }
+  }
   inp.value = '';
   if (activeTab === 3) render();
   inp.focus();
@@ -3292,6 +3355,30 @@ async function mgmtDelete(taskId, taskName) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtx(); });
 
 /* ══════════════════════════════════════════
+   PUSH SETTINGS TOGGLE
+══════════════════════════════════════════ */
+async function togglePushSetting(key) {
+  const defaults = { neue_notiz:true, aufgabe_erledigt:false, neue_einkauf:false, kalender_reminder:true, taegl_aufgaben:true, wochenuebersicht:true };
+  const cur = pushSettings[key] !== undefined ? pushSettings[key] : defaults[key];
+  pushSettings[key] = !cur;
+  if (activeTab === 0) render();
+  try {
+    await SB.from('push_settings').upsert(
+      { user_name: activeUser || 'lucas', [key]: pushSettings[key], updated_at: new Date().toISOString() },
+      { onConflict: 'user_name' }
+    );
+  } catch(e) { console.warn('push_settings save failed:', e); }
+}
+
+async function loadPushSettings() {
+  if (!activeUser) return;
+  try {
+    const {data} = await SB.from('push_settings').select('*').eq('user_name', activeUser).maybeSingle();
+    pushSettings = data || {};
+  } catch(_) { pushSettings = {}; }
+}
+
+/* ══════════════════════════════════════════
    ACTIONS — NOTES
 ══════════════════════════════════════════ */
 function openNoteModal() {
@@ -3327,13 +3414,15 @@ async function saveNote() {
   const {data, error} = await SB.from('notes').insert({author, to_user: noteToUser, content}).select().single();
   if (!error && data) {
     notes.unshift(data);
-    // Push an den Empfänger (nicht an sich selbst)
-    const pushTarget = noteToUser === 'both' ? 'both'
-      : noteToUser !== author ? noteToUser : null;
-    if (pushTarget) {
-      const authorName = author === 'lucas' ? 'Lucas' : 'Isabell';
-      const toLabel = pushTarget === 'both' ? '' : ` (an ${pushTarget === 'lucas' ? 'Lucas' : 'Isabell'})`;
-      sendPushNotification(`📝 Neue Notiz von ${authorName}${toLabel}`, content, pushTarget);
+    // Push an den Empfänger — nur wenn Setting aktiv
+    const noteEnabled = pushSettings.neue_notiz !== undefined ? pushSettings.neue_notiz : true;
+    if (noteEnabled) {
+      const pushTarget = noteToUser === 'both' ? 'both'
+        : noteToUser !== author ? noteToUser : null;
+      if (pushTarget) {
+        const authorName = author === 'lucas' ? 'Lucas' : 'Isabell';
+        sendPushNotification(`📝 Neue Notiz von ${authorName}`, content, pushTarget);
+      }
     }
   }
   closeModal('noteModal');
@@ -3351,7 +3440,8 @@ function setUser(name) {
   localStorage.setItem('zuhause_user', name);
   document.getElementById('userModal').classList.remove('open');
   updateUserBadge();
-  subscribeToPush(); // Push-Berechtigung anfragen nach User-Wahl
+  loadPushSettings().then(() => { if (activeTab === 0) render(); });
+  subscribeToPush();
 }
 
 function updateUserBadge() {
