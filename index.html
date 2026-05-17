@@ -50,6 +50,26 @@
   --nav-h:56px;
 }
 
+/* ── Dark Mode ── */
+[data-theme="dark"] {
+  --c0:#1c1813;
+  --c1:#231f19;
+  --c2:#2e2920;
+  --c3:#3a342a;
+  --c4:#6b6054;
+  --c5:#b0a088;
+  --c6:#f0e8d8;
+  --sh:0 1px 4px rgba(0,0,0,.3),0 2px 12px rgba(0,0,0,.2);
+  --sage-l:#192b1c;
+  --sage-d:#7ab880;
+  --lav-l:#1c1a2e;
+  --lav-d:#a898d8;
+  --gold-l:#201a0a;
+  --gold-d:#d4a040;
+  --terra-l:#241410;
+  --terra-d:#e07050;
+}
+
 html,body{height:100%;overflow:hidden;background:var(--c0);max-width:100vw}
 body{
   font-family:'DM Sans',sans-serif;font-size:15px;
@@ -205,7 +225,9 @@ body{
   display:flex;flex-direction:column;align-items:center;
   gap:2px;padding:7px 2px;border-radius:11px;
   background:var(--c1);border:1px solid var(--c2);
+  cursor:pointer;transition:opacity .15s;
 }
+.day-cell:active{opacity:.7}
 .day-cell.today{background:var(--sage);border-color:var(--sage)}
 .day-cell .dc-n{font-size:9px;font-weight:700;color:var(--c4);letter-spacing:.2px}
 .day-cell .dc-d{font-size:13px;font-weight:700;color:var(--c6)}
@@ -404,6 +426,7 @@ body{
   backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
 }
 .modal-bg.open{display:flex}
+#eventModal{z-index:250}
 .modal-sheet{
   background:var(--c1);
   border-radius:24px 24px 0 0;
@@ -708,6 +731,126 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
   border:1px solid rgba(160,120,24,.25);border-radius:var(--r);
   padding:9px 13px;display:flex;align-items:center;gap:9px;
 }
+
+/* ── Calendar Events — Cupla-style bars ── */
+.kal-dc { min-height: 68px; padding: 4px 1px 2px !important; }
+.kal-evts { width: 100%; display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
+.cal-evt-chip {
+  font-size: 8px; font-weight: 700;
+  padding: 1px 3px; border-radius: 3px;
+  white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; width: 100%;
+  line-height: 1.7; display: block;
+  text-align: left;
+}
+.cal-evt-l { background: var(--sage); color: #fff; }
+.cal-evt-i { background: var(--lav); color: #fff; }
+.cal-evt-b { background: var(--gold); color: #fff; }
+/* Shift bar in calendar cell */
+.cal-shift-bar {
+  font-size: 7px; font-weight: 700; width: 100%;
+  padding: 1px 3px; border-radius: 3px;
+  line-height: 1.7; text-align: left; display: block;
+}
+.cal-shift-L { background: #fef3c7; color: #92400e; }
+.cal-shift-S { background: #d1fae5; color: #065f46; }
+.cal-shift-N { background: #e5e7eb; color: #374151; }
+.cal-shift-U { background: #dbeafe; color: #1e40af; }
+
+/* ── Day Sheet Events ── */
+.evt-person-hdr {
+  display: flex; align-items: center;
+  gap: 8px; padding: 10px 0 6px;
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.evt-card {
+  display: flex; align-items: flex-start;
+  gap: 10px; padding: 10px 12px;
+  background: var(--c1); border: 1px solid var(--c2);
+  border-radius: var(--r); margin-bottom: 6px;
+  cursor: pointer; transition: background .1s;
+}
+.evt-card:active { background: var(--c2); }
+.evt-bar { width: 3px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
+.evt-bar-l { background: var(--sage); }
+.evt-bar-i { background: var(--lav); }
+.evt-bar-b { background: var(--gold); }
+.evt-title { font-size: 14px; font-weight: 500; color: var(--c6); }
+.evt-time { font-size: 11px; color: var(--c4); margin-top: 2px; }
+.evt-add-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border: 1.5px dashed var(--c3);
+  border-radius: var(--r); cursor: pointer;
+  font-size: 13px; color: var(--c4); background: none;
+  width: 100%; margin-bottom: 6px;
+  font-family: 'DM Sans', sans-serif;
+  transition: all .12s;
+}
+.evt-add-btn:active { border-color: var(--sage); color: var(--sage-d); }
+
+/* ── Personalized Overview ── */
+.p-hero {
+  margin: 10px 16px 0;
+  border-radius: var(--rl);
+  padding: 15px 18px 14px;
+  position: relative; overflow: hidden;
+}
+.p-hero-l { background: var(--sage); }
+.p-hero-i { background: var(--lav); }
+.p-hero::after {
+  content: ''; position: absolute;
+  top: -20px; right: -16px;
+  width: 90px; height: 90px; border-radius: 50%;
+  background: rgba(255,255,255,.07); pointer-events: none;
+}
+.p-hero-name { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 700; color: #fff; }
+.p-hero-date { font-size: 12px; color: rgba(255,255,255,.7); margin-top: 3px; }
+.p-hero-chips { display: flex; gap: 5px; flex-shrink: 0; }
+.partner-card {
+  margin: 0 16px 10px;
+  background: var(--c1); border: 1px solid var(--c2);
+  border-radius: var(--rl); padding: 12px 14px;
+  box-shadow: var(--sh);
+}
+
+/* ── Collapsible ── */
+.collapse-hdr {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px; cursor: pointer;
+  -webkit-user-select: none; user-select: none;
+}
+.collapse-hdr-title {
+  font-family: 'Fraunces', serif;
+  font-size: 17px; font-weight: 700; color: var(--c6);
+  display: flex; align-items: center; gap: 7px;
+}
+.collapse-arrow {
+  font-size: 14px; color: var(--c4);
+  transition: transform .22s; display: inline-block;
+}
+.collapse-arrow.open { transform: rotate(180deg); }
+.collapse-body {
+  overflow: hidden; max-height: 0;
+  transition: max-height .35s cubic-bezier(.4,0,.2,1);
+}
+.collapse-body.open { max-height: 4000px; }
+
+/* ── Event Modal Segment Control ── */
+.seg-ctrl { display: flex; gap: 0; border: 1px solid var(--c2); border-radius: var(--r); overflow: hidden; }
+.seg-btn {
+  flex: 1; padding: 11px 6px; border: none; background: var(--c0);
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  font-family: 'DM Sans', sans-serif; color: var(--c5);
+  border-right: 1px solid var(--c2); transition: all .15s;
+}
+.seg-btn:last-child { border-right: none; }
+.seg-btn.active { color: #fff; }
+.seg-btn-l.active { background: var(--sage); }
+.seg-btn-i.active { background: var(--lav); }
+.seg-btn-b.active { background: var(--gold); }
+.seg-btn:active { opacity: .75; }
 </style>
 </head>
 <body>
@@ -818,6 +961,30 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
 </div>
 
 <!-- ══ MODAL: Benutzer wählen ══ -->
+<!-- ══ MODAL: Notiz ══ -->
+<div class="modal-bg" id="noteModal">
+<div class="modal-sheet">
+  <div class="modal-drag" onclick="closeModal('noteModal')"><div class="modal-drag-bar"></div></div>
+  <div class="modal-title">Notiz schreiben</div>
+  <div style="padding:0 20px 12px">
+    <span class="field-label">An</span>
+    <div style="display:flex;gap:8px;margin-top:6px">
+      <button id="noteTo-both" onclick="setNoteTo('both')" style="flex:1;padding:9px 0;border-radius:20px;border:1.5px solid var(--sage);background:var(--sage);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Beide</button>
+      <button id="noteTo-lucas" onclick="setNoteTo('lucas')" style="flex:1;padding:9px 0;border-radius:20px;border:1.5px solid var(--c3);background:transparent;color:var(--c5);font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Lucas</button>
+      <button id="noteTo-isabell" onclick="setNoteTo('isabell')" style="flex:1;padding:9px 0;border-radius:20px;border:1.5px solid var(--c3);background:transparent;color:var(--c5);font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Isabell</button>
+    </div>
+  </div>
+  <div style="padding:0 20px 4px">
+    <span class="field-label">Nachricht</span>
+    <textarea id="noteContent" placeholder="Deine Notiz…" rows="4" style="width:100%;margin-top:6px;padding:12px;background:var(--c1);border:1.5px solid var(--c2);border-radius:var(--r);font-family:'DM Sans',sans-serif;font-size:15px;color:var(--c6);resize:none;outline:none;line-height:1.5"></textarea>
+  </div>
+  <div class="modal-btns">
+    <button class="modal-cancel" onclick="closeModal('noteModal')">Abbrechen</button>
+    <button class="modal-save" onclick="saveNote()">Senden</button>
+  </div>
+</div>
+</div>
+
 <div class="modal-bg" id="userModal" style="background:rgba(42,30,10,.75)">
 <div class="modal-sheet" style="padding-bottom:calc(32px + var(--sab));border-radius:26px 26px 0 0">
   <div style="padding:28px 20px 0;text-align:center">
@@ -1026,6 +1193,81 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
 </div>
 </div>
 
+<!-- ══ MODAL: Termin ══ -->
+<div class="modal-bg" id="eventModal">
+<div class="modal-sheet">
+  <div class="modal-drag" onclick="closeModal('eventModal')"><div class="modal-drag-bar"></div></div>
+  <div class="modal-title" id="eventModalTitle">Neuer Termin</div>
+
+  <!-- Person segment control (Cupla-style) -->
+  <div style="margin-bottom:14px">
+    <span class="field-label" style="margin-top:0">Für wen</span>
+    <div class="seg-ctrl" style="margin-top:5px" id="evPersonCtrl">
+      <button class="seg-btn seg-btn-l active" onclick="setEvPerson('lucas')" id="evBtn-lucas">👤 Lucas</button>
+      <button class="seg-btn seg-btn-i" onclick="setEvPerson('isabell')" id="evBtn-isabell">👤 Isabell</button>
+      <button class="seg-btn seg-btn-b" onclick="setEvPerson('both')" id="evBtn-both">👫 Beide</button>
+    </div>
+  </div>
+
+  <span class="field-label" style="margin-top:0">Titel</span>
+  <input class="field-input" id="evTitle" placeholder="Termin beschreiben...">
+
+  <div class="field-grid" style="margin-top:0">
+    <div>
+      <span class="field-label">Art</span>
+      <select class="field-select" id="evType">
+        <option value="event">📅 Termin</option>
+        <option value="absence">✈️ Abwesenheit</option>
+        <option value="birthday">🎂 Geburtstag</option>
+        <option value="note">📝 Notiz</option>
+      </select>
+    </div>
+    <div>
+      <span class="field-label">Wiederholung</span>
+      <select class="field-select" id="evRecur">
+        <option value="none">Einmalig</option>
+        <option value="weekly">🔁 Wöchentlich</option>
+        <option value="monthly">🔁 Monatlich</option>
+        <option value="yearly">🔁 Jährlich</option>
+      </select>
+    </div>
+    <div>
+      <span class="field-label">Von Datum</span>
+      <input class="field-input" id="evDate" type="date">
+    </div>
+    <div>
+      <span class="field-label">Bis Datum <span style="font-weight:400;color:var(--c4)">(optional)</span></span>
+      <input class="field-input" id="evEndDate" type="date">
+    </div>
+    <div>
+      <span class="field-label">Uhrzeit von</span>
+      <input class="field-input" id="evStart" type="time" oninput="checkOvernight()">
+    </div>
+    <div>
+      <span class="field-label">Uhrzeit bis</span>
+      <input class="field-input" id="evEnd" type="time" oninput="checkOvernight()">
+    </div>
+    <div class="span2" id="overnightHint" style="display:none">
+      <div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:var(--r);padding:8px 10px;font-size:12px;color:#92400e;display:flex;align-items:center;gap:6px">
+        🌙 Geht über Mitternacht — Bis-Datum wird automatisch auf den Folgetag gesetzt
+      </div>
+    </div>
+    <div class="span2">
+      <span class="field-label">Notiz (optional)</span>
+      <input class="field-input" id="evNote" placeholder="z.B. Ort, weitere Infos...">
+    </div>
+  </div>
+
+  <div class="modal-btns">
+    <button class="modal-cancel" onclick="closeModal('eventModal')">Abbrechen</button>
+    <button class="modal-save" onclick="saveCalEvent()">Speichern</button>
+  </div>
+  <button id="evDeleteBtn" style="display:none;width:100%;margin-top:10px;padding:13px;background:none;border:1px solid var(--terra);border-radius:var(--r);color:var(--terra);font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer" onclick="deleteCalEvent()">
+    🗑 Termin löschen
+  </button>
+</div>
+</div>
+
 <!-- ══ MODAL: Tag-Detail ══ -->
 <div class="modal-bg" id="daySheet">
 <div class="modal-sheet">
@@ -1078,6 +1320,13 @@ let comps = {}, shifts = {};
 let groceries = [], fairLog = [];
 let absences = new Set();
 let weekOverrides = {}, deferredTasks = {};
+let notes = [];
+let noteToUser = 'both';
+let pushSettings = {};
+let calendarEvents = [];
+let taskMgmtOpen = localStorage.getItem('zuhause_taskMgmt') === 'true';
+let editingEventId = null;
+let selectedHeuteDay = (new Date().getDay() + 6) % 7; // 0=Mo … 6=So
 
 // ── Import ──
 let impImg = null, impMime = null, impParsed = [];
@@ -1111,6 +1360,69 @@ function weekKey(offset = weekOffset) {
   return `${d.getFullYear()}-W${String(weekNum(d)).padStart(2,'0')}`;
 }
 function todayStr() { return fmtDate(new Date()); }
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return fmtDate(d);
+}
+
+/* ── Dark Mode ── */
+function toggleDarkMode() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('zuhause_theme', next);
+  if (activeTab === 0) render(); // refresh hero button icon
+}
+// Init on load
+(function() {
+  const saved = localStorage.getItem('zuhause_theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'dark' || (!saved && prefersDark)) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+
+/* ── Recurring event helpers ── */
+function eventAppliesTo(e, dateStr) {
+  if (dateStr < e.event_date) return false; // before first occurrence
+  if (!e.recur || e.recur === 'none') {
+    return e.event_date <= dateStr && (e.end_date || e.event_date) >= dateStr;
+  }
+  const base = new Date(e.event_date + 'T12:00:00');
+  const target = new Date(dateStr + 'T12:00:00');
+  if (e.recur === 'yearly')  return target.getMonth() === base.getMonth() && target.getDate() === base.getDate();
+  if (e.recur === 'monthly') return target.getDate() === base.getDate();
+  if (e.recur === 'weekly')  return target.getDay() === base.getDay();
+  return false;
+}
+// Returns the event object with the concrete occurrence date (for agenda lists)
+function occurrencesInRange(e, fromStr, toStr) {
+  if (!e.recur || e.recur === 'none') {
+    return eventAppliesTo(e, fromStr) || (e.event_date >= fromStr && e.event_date <= toStr)
+      ? [e] : [];
+  }
+  const results = [];
+  const to = new Date(toStr + 'T12:00:00');
+  let cur = new Date(e.event_date + 'T12:00:00');
+  // fast-forward to range
+  while (fmtDate(cur) < fromStr) {
+    if (e.recur === 'yearly')  cur.setFullYear(cur.getFullYear() + 1);
+    else if (e.recur === 'monthly') cur.setMonth(cur.getMonth() + 1);
+    else if (e.recur === 'weekly')  cur.setDate(cur.getDate() + 7);
+    else break;
+  }
+  let safety = 0;
+  while (cur <= to && safety++ < 60) {
+    const ds = fmtDate(cur);
+    if (ds >= fromStr && ds <= toStr) results.push({...e, event_date: ds, _recurBase: e.id});
+    if (e.recur === 'yearly')  cur.setFullYear(cur.getFullYear() + 1);
+    else if (e.recur === 'monthly') cur.setMonth(cur.getMonth() + 1);
+    else if (e.recur === 'weekly')  cur.setDate(cur.getDate() + 7);
+    else break;
+  }
+  return results;
+}
 
 /* ══════════════════════════════════════════
    AVAILABILITY ENGINE
@@ -1151,12 +1463,22 @@ function assignTask(assign, taskId, off = weekOffset) {
   if (assign === 'isabell') return 'isabell';
   if (assign === 'both')    return 'both';
   // Auto: use weekly free hours for the correct week,
-  // subtract fixed-assigned tasks so they don't skew the balance
+  // subtract fixed-assigned tasks (excluding garden + once-off) so they don't skew the balance
   const {l, i} = weekFree(off);
-  const fixedLucas   = tasks.filter(t => t.assign === 'lucas'   && String(t.id) !== key && t.active !== false).length;
-  const fixedIsabell = tasks.filter(t => t.assign === 'isabell' && String(t.id) !== key && t.active !== false).length;
-  const scoreL = l - fixedLucas * 1.5;
-  const scoreI = i - fixedIsabell * 1.5;
+  const fixedTasks = tasks.filter(t =>
+    t.cat !== 'garten' &&
+    t.recur !== 'once' &&
+    t.active !== false &&
+    String(t.id) !== key &&
+    (t.assign === 'lucas' || t.assign === 'isabell')
+  );
+  const fixedLucas   = fixedTasks.filter(t => t.assign === 'lucas').length;
+  const fixedIsabell = fixedTasks.filter(t => t.assign === 'isabell').length;
+  // Extra penalty for night shifts (physically demanding, already count as 0 free hours)
+  const nightShifts = weekDates(off).filter(d => shifts[fmtDate(d)] === 'N').length;
+  const shiftPenalty = nightShifts * 3;
+  const scoreL = l - fixedLucas * 2;
+  const scoreI = i - fixedIsabell * 2 - shiftPenalty;
   return scoreL >= scoreI ? 'lucas' : 'isabell';
 }
 function bestDay(dates, person, dayRange) {
@@ -1252,13 +1574,15 @@ async function loadAll() {
   setSync('loading');
   try {
     // Core data — must succeed
-    const [tRes, cRes, sRes, gRes, fRes, aRes] = await Promise.all([
+    const [tRes, cRes, sRes, gRes, fRes, aRes, evRes, nRes] = await Promise.all([
       SB.from('tasks').select('*').order('id'),
       SB.from('task_completions').select('*'),
       SB.from('shifts').select('*'),
       SB.from('groceries').select('*').order('created_at'),
       SB.from('fairness_log').select('*').order('week_key', {ascending:false}).limit(10),
       SB.from('absences').select('*'),
+      SB.from('calendar_events').select('*').order('event_date'),
+      SB.from('notes').select('*').order('created_at', {ascending:false}).limit(20),
     ]);
     allTasksRaw = tRes.data || [];
     tasks = allTasksRaw.filter(row => row.active !== false);
@@ -1272,6 +1596,8 @@ async function loadAll() {
     groceries = gRes.data || [];
     fairLog = fRes.data || [];
     absences = new Set((aRes.data || []).map(x => x.week_key));
+    calendarEvents = evRes.data || [];
+    notes = nRes.data || [];
 
     // Overrides — optional, don't block core if fails
     weekOverrides = {}; deferredTasks = {};
@@ -1288,6 +1614,14 @@ async function loadAll() {
     } catch(ovErr) {
       console.warn('task_overrides load failed (non-critical):', ovErr);
     }
+
+    // Push settings — optional
+    try {
+      if (activeUser) {
+        const psRes = await SB.from('push_settings').select('*').eq('user_name', activeUser).maybeSingle();
+        pushSettings = psRes.data || {};
+      }
+    } catch(_) {}
 
     setSync('ok');
     render();
@@ -1376,6 +1710,20 @@ function setupRealtime() {
         render();
       });
     })
+    .on('postgres_changes', {event:'*', schema:'public', table:'calendar_events'}, () => {
+      SB.from('calendar_events').select('*').order('event_date').then(r => {
+        calendarEvents = r.data || [];
+        render();
+      });
+    })
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'notes'}, (payload) => {
+      if (!notes.find(n => n.id === payload.new.id)) notes.unshift(payload.new);
+      if (activeTab === 0) render();
+    })
+    .on('postgres_changes', {event:'DELETE', schema:'public', table:'notes'}, (payload) => {
+      notes = notes.filter(n => n.id !== payload.old.id);
+      if (activeTab === 0) render();
+    })
     .subscribe(s => {
       if (s === 'SUBSCRIBED') setSync('ok');
       else if (s === 'CHANNEL_ERROR' || s === 'TIMED_OUT' || s === 'CLOSED') setSync('error');
@@ -1388,20 +1736,16 @@ function setupRealtime() {
 function goTab(t) {
   activeTab = t;
   document.querySelectorAll('.ni').forEach((n, i) => n.classList.toggle('active', i === t));
-  // Week nav only on Heute
-  document.getElementById('weekNavEl').style.display = t === 0 ? 'flex' : 'none';
+  // Week nav on Heute + Putzen + Garten
+  document.getElementById('weekNavEl').style.display = (t === 0 || t === 1 || t === 2) ? 'flex' : 'none';
   // QA bar only on Einkauf
   document.getElementById('qaBar').classList.toggle('hidden', t !== 3);
-  // FAB: Putzen/Garten → add task, Kalender → management sheet
+  // FAB: Putzen/Garten → add task only
   const fab = document.getElementById('fabBtn');
   if (t === 1 || t === 2) {
     fab.style.display = 'flex';
     fab.textContent = '+';
     fab.onclick = () => openTaskModal();
-  } else if (t === 4) {
-    fab.style.display = 'flex';
-    fab.textContent = '⚙';
-    fab.onclick = () => openMgmtSheet();
   } else {
     fab.style.display = 'none';
   }
@@ -1410,8 +1754,17 @@ function goTab(t) {
   render();
 }
 
-function prevWeek() { weekOffset--; setSync('ok'); render(); }
-function nextWeek() { weekOffset++; setSync('ok'); render(); }
+function prevWeek() {
+  weekOffset--;
+  selectedHeuteDay = weekOffset === 0 ? (new Date().getDay() + 6) % 7 : 0;
+  setSync('ok'); render();
+}
+function nextWeek() {
+  weekOffset++;
+  selectedHeuteDay = weekOffset === 0 ? (new Date().getDay() + 6) % 7 : 0;
+  setSync('ok'); render();
+}
+function selectHeuteDay(idx) { selectedHeuteDay = idx; render(); }
 function calPrev() { calMonth--; if (calMonth < 1) { calMonth = 12; calYear--; } render(); }
 function calNext() { calMonth++; if (calMonth > 12) { calMonth = 1; calYear++; } render(); }
 function calToday() {
@@ -1419,6 +1772,11 @@ function calToday() {
   calYear = nd.getFullYear(); calMonth = nd.getMonth() + 1;
   selectedCalDay = null;
   render();
+  requestAnimationFrame(() => {
+    document.getElementById('content').scrollTop = 0;
+    const todayCell = document.querySelector('.kal-today');
+    if (todayCell) todayCell.scrollIntoView({block:'center', behavior:'smooth'});
+  });
 }
 
 /* ══════════════════════════════════════════
@@ -1486,139 +1844,334 @@ function taskRowHTML(task, assigned, day) {
 /* ══════════════════════════════════════════
    TAB 0: HEUTE
 ══════════════════════════════════════════ */
-function renderHeute(dates) {
-  const today = todayStr();
-  const hour = new Date().getHours();
-  const greet = hour < 12 ? 'Guten Morgen ☀️' : hour < 18 ? 'Guten Nachmittag 🌤' : 'Guten Abend 🌙';
-  const weekLabel = weekOffset === 0 ? 'Diese Woche' : weekOffset < 0 ? 'Letzte Woche' : 'Nächste Woche';
-  const {l, i} = weekFree();
-  const curWk = weekKey();
-  const allActive = tasks.filter(t => t.recur !== 'once' && (!deferredTasks[String(t.id)] || deferredTasks[String(t.id)] <= curWk));
-  const doneCount = allActive.filter(t => isDone(t.id)).length;
-  const openG = groceries.filter(g => !g.done);
-  const shiftDays = dates.filter(d => { const s = shifts[fmtDate(d)]; return s==='L'||s==='S'||s==='N'; }).length;
-
-  // Hero
-  let html = `
-    <div class="hero">
-      <div class="hero-text">
-        <div class="hero-greet">${greet}</div>
-        <div class="hero-week">${weekLabel}</div>
+function renderPushSettings() {
+  const PUSH_ITEMS = [
+    { key:'neue_notiz',        icon:'📝', label:'Neue Notiz vom Partner',        sub:'Sofort bei neuer Notiz',           def:true  },
+    { key:'aufgabe_erledigt',  icon:'✅', label:'Aufgabe erledigt',              sub:'Wenn Partner eine Aufgabe abhakt', def:false },
+    { key:'neue_einkauf',      icon:'🛒', label:'Neuer Einkaufsartikel',         sub:'Wenn Partner etwas hinzufügt',    def:false },
+    { key:'kalender_reminder', icon:'📅', label:'Kalender-Erinnerung',           sub:'Tag vorher, 20:00 Uhr ✦',         def:true  },
+    { key:'taegl_aufgaben',    icon:'☀️', label:'Tägliche Aufgaben-Erinnerung',  sub:'Mo–Fr, 8:00 Uhr ✦',              def:true  },
+    { key:'wochenuebersicht',  icon:'📊', label:'Wochenübersicht',               sub:'Montag, 9:00 Uhr ✦',             def:true  },
+  ];
+  let html = `<div style="padding:0 16px 20px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--c4);padding:8px 0 8px">📬 Push-Einstellungen</div>
+    <div style="background:var(--c1);border:1px solid var(--c2);border-radius:var(--rl);overflow:hidden">`;
+  PUSH_ITEMS.forEach((s, i) => {
+    const val = pushSettings[s.key] !== undefined ? pushSettings[s.key] : s.def;
+    const border = i < PUSH_ITEMS.length - 1 ? 'border-bottom:1px solid var(--c2);' : '';
+    const trackBg = val ? 'var(--sage)' : 'var(--c3)';
+    const knobX   = val ? '20px' : '2px';
+    html += `<div style="display:flex;align-items:center;padding:11px 14px;${border}cursor:pointer" onclick="togglePushSetting('${s.key}')">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:14px;font-weight:500;color:var(--c6)">${s.icon} ${s.label}</div>
+        <div style="font-size:11px;color:var(--c4);margin-top:1px">${s.sub}</div>
       </div>
-      <div class="hero-chips">
-        <div class="hchip">
-          <div class="hchip-v">${doneCount}/${allActive.length}</div>
-          <div class="hchip-l">Aufgaben</div>
-        </div>
-        <div class="hchip">
-          <div class="hchip-v">${openG.length}</div>
-          <div class="hchip-l">Einkauf</div>
-        </div>
+      <div style="width:42px;height:24px;border-radius:12px;background:${trackBg};position:relative;flex-shrink:0;transition:background .2s">
+        <div style="position:absolute;top:2px;left:${knobX};width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s"></div>
       </div>
     </div>`;
+  });
+  html += `</div>
+    <div style="font-size:11px;color:var(--c4);margin-top:6px;padding:0 2px">✦ Erfordert Cron-Aktivierung in Supabase</div>
+  </div>`;
+  return html;
+}
 
-  // Weekly summary banner (Fr-So)
-  const todayDow = new Date().getDay(); // 0=So,5=Fr,6=Sa
-  const isWeekend = (todayDow === 5 || todayDow === 6 || todayDow === 0) && weekOffset === 0;
-  if (isWeekend && doneCount > 0) {
-    const pct = Math.round(doneCount / allActive.length * 100);
-    const emoji = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪';
-    html += `<div style="margin:10px 16px 0;background:var(--gold-l);border:1px solid rgba(160,120,24,.2);border-radius:var(--rl);padding:12px 16px;display:flex;align-items:center;gap:12px">
-      <span style="font-size:26px">${emoji}</span>
-      <div>
-        <div style="font-family:'Fraunces',serif;font-size:14px;font-weight:700;color:var(--gold-d)">Wochenrückblick</div>
-        <div style="font-size:12px;color:var(--gold-d);margin-top:2px;opacity:.85">${doneCount} von ${allActive.length} Aufgaben erledigt · ${pct}%</div>
-      </div>
+function relativeTime(isoStr) {
+  const diff = Math.floor((Date.now() - new Date(isoStr)) / 1000);
+  if (diff < 60) return 'gerade eben';
+  if (diff < 3600) return `vor ${Math.floor(diff/60)}m`;
+  if (diff < 86400) return `vor ${Math.floor(diff/3600)}h`;
+  return `vor ${Math.floor(diff/86400)}d`;
+}
+
+function renderNotizen() {
+  const authorColor = {
+    lucas:   {bg:'var(--sage-l)', dot:'var(--sage)',  name:'var(--sage-d)',  label:'Lucas'},
+    isabell: {bg:'var(--lav-l)',  dot:'var(--lav)',   name:'var(--lav-d)',   label:'Isabell'},
+  };
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 6px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--c4)">Notizen</div>
+    <button onclick="openNoteModal()" style="background:var(--c1);border:1px solid var(--c2);border-radius:20px;padding:4px 12px;font-size:13px;font-weight:700;color:var(--sage-d);cursor:pointer;font-family:'DM Sans',sans-serif">+ Neu</button>
+  </div>`;
+
+  if (notes.length === 0) {
+    html += `<div onclick="openNoteModal()" style="margin:0 16px 4px;background:var(--c1);border:1px dashed var(--c3);border-radius:var(--rl);padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">📝</span>
+      <span style="font-size:13px;color:var(--c4);font-weight:500">Notiz für Lucas oder Isabell schreiben…</span>
     </div>`;
+    return html;
   }
 
-  // Day strip
-  html += `<div class="day-strip">`;
-  dates.forEach((d, idx) => {
-    const ds = fmtDate(d), sh = shifts[ds], isToday = ds === today;
-    html += `
-      <div class="day-cell ${isToday ? 'today' : ''}">
-        <div class="dc-n">${DAYS[idx]}</div>
-        <div class="dc-d">${d.getDate()}</div>
-        <div class="dc-s">${sh ? `<span class="sh sh${sh}">${sh}</span>` : ''}</div>
-      </div>`;
+  const visible = notes.slice(0, 3);
+  html += `<div style="margin:0 16px;display:flex;flex-direction:column;gap:7px">`;
+  visible.forEach(n => {
+    const ac = authorColor[n.author] || authorColor.lucas;
+    const toLabel = n.to_user === 'both' ? '' : `<span style="font-size:11px;color:var(--c4)">→ ${n.to_user === 'lucas' ? 'Lucas' : 'Isabell'}</span>`;
+    html += `<div style="background:${ac.bg};border-radius:14px;padding:11px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${ac.dot};flex-shrink:0"></span>
+          <span style="font-size:11px;font-weight:700;color:${ac.name}">${ac.label}</span>
+          ${toLabel}
+          <span style="font-size:11px;color:var(--c4)">· ${relativeTime(n.created_at)}</span>
+        </div>
+        <button onclick="deleteNote('${n.id}')" style="background:none;border:none;font-size:16px;color:var(--c4);cursor:pointer;line-height:1;padding:0 2px;font-family:'DM Sans',sans-serif">×</button>
+      </div>
+      <div style="font-size:14px;color:var(--c6);line-height:1.5;white-space:pre-wrap">${n.content.replace(/</g,'&lt;')}</div>
+    </div>`;
   });
   html += `</div>`;
 
-  // Verfügbarkeit kurz
-  html += `
-    <div style="display:flex;gap:8px;padding:10px 16px 0">
-      <div style="flex:1;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);padding:10px 12px">
-        <div style="font-size:10px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Lucas frei</div>
-        <div style="font-size:20px;font-weight:700;font-family:'Fraunces',serif;color:var(--sage);margin-top:2px">~${l}h</div>
-        <div style="font-size:11px;color:var(--c4);margin-top:1px">${[5,6].reduce((a,j)=>a+lucasFree(fmtDate(dates[j])),0)}h WE + ${l-[5,6].reduce((a,j)=>a+lucasFree(fmtDate(dates[j])),0)}h Abend</div>
+  if (notes.length > 3) {
+    html += `<div style="text-align:center;padding:6px 0 2px;font-size:12px;color:var(--c4);font-weight:600">+${notes.length - 3} weitere</div>`;
+  }
+  return html;
+}
+
+function renderHeute(dates) {
+  const today = todayStr();
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Guten Nachmittag' : 'Guten Abend';
+  const emoji = hour < 12 ? '☀️' : hour < 18 ? '🌤' : '🌙';
+  const curWk = weekKey();
+  const isLucas = activeUser === 'lucas';
+  const isIsabell = activeUser === 'isabell';
+  const myName = isLucas ? 'Lucas' : isIsabell ? 'Isabell' : '?';
+  const partnerName = isLucas ? 'Isabell' : isIsabell ? 'Lucas' : null;
+  const heroClass = isIsabell ? 'p-hero-i' : 'p-hero-l';
+  const myC = isIsabell ? 'var(--lav)' : 'var(--sage)';
+  const myCd = isIsabell ? 'var(--lav-d)' : 'var(--sage-d)';
+  const myCl = isIsabell ? 'var(--lav-l)' : 'var(--sage-l)';
+  const myBorder = isIsabell ? 'rgba(114,100,160,.15)' : 'rgba(78,110,82,.15)';
+  const pCd = isLucas ? 'var(--lav-d)' : 'var(--sage-d)';
+  const pCl = isLucas ? 'var(--lav-l)' : 'var(--sage-l)';
+  const pBorder = isLucas ? 'rgba(114,100,160,.15)' : 'rgba(78,110,82,.15)';
+
+  // Selected day within current week
+  const selIdx = Math.min(selectedHeuteDay, dates.length - 1);
+  const selD = dates[selIdx];
+  const selStr = fmtDate(selD);
+  const isViewingToday = selStr === today;
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const selDayName = DAYS[selIdx];
+  const dayNameToIdx = {Mo:0,Di:1,Mi:2,Do:3,Fr:4,Sa:5,So:6};
+
+  // Task helpers
+  function taskMatchesDay(t, dName) {
+    if (!t.day) return false;
+    if (t.day === dName) return true;
+    if (t.day.includes('-')) {
+      const [from, to] = t.day.split('-');
+      const fi = dayNameToIdx[from], ti = dayNameToIdx[to], ci = dayNameToIdx[dName];
+      if (fi != null && ti != null && ci != null) {
+        if (fi <= ti) return ci >= fi && ci <= ti;
+        return ci >= fi || ci <= ti;
+      }
+    }
+    return false;
+  }
+
+  const allActive = tasks.filter(t => t.recur !== 'once' && (!deferredTasks[String(t.id)] || deferredTasks[String(t.id)] <= curWk));
+  const myTasks = allActive.filter(t => { const a = assignTask(t.assign, t.id, weekOffset); return a === activeUser || a === 'both'; });
+  const myOpen = myTasks.filter(t => !isDone(t.id));
+  const myDone = myTasks.filter(t => isDone(t.id));
+
+  let html = '';
+
+  // ── Hero ──
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const themeIcon = isDark ? '☀️' : '🌙';
+  const heroDateLabel = new Date().toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long'});
+  html += `<div class="p-hero ${heroClass}" style="margin-bottom:0">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between">
+      <div>
+        <div class="p-hero-name">${greet}, ${myName}! ${emoji}</div>
+        <div class="p-hero-date">${heroDateLabel}</div>
       </div>
-      <div style="flex:1;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);padding:10px 12px">
-        <div style="font-size:10px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.4px">Isabell frei</div>
-        <div style="font-size:20px;font-weight:700;font-family:'Fraunces',serif;color:var(--lav);margin-top:2px">~${i}h</div>
-        <div style="font-size:11px;color:var(--c4);margin-top:1px">${shiftDays} Dienst${shiftDays !== 1 ? 'e' : ''} diese Woche</div>
+      <button onclick="toggleDarkMode()" title="Dark Mode" style="background:rgba(255,255,255,.18);border:none;border-radius:50%;width:34px;height:34px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">${themeIcon}</button>
+    </div>
+  </div>`;
+
+  // ── Day selector strip ──
+  html += `<div class="day-strip" style="padding:4px 10px 6px">`;
+  dates.forEach((d, idx) => {
+    const ds = fmtDate(d);
+    const sh = shifts[ds];
+    const isToday = ds === today;
+    const isSel = idx === selIdx;
+    const hasEvts = calendarEvents.some(e => eventAppliesTo(e, ds));
+    let indicator = '';
+    if (sh) indicator = `<span class="sh sh${sh}" style="font-size:6px;padding:1px 2px;line-height:1.4">${sh}</span>`;
+    else if (hasEvts) indicator = `<span style="width:5px;height:5px;background:${isSel?'#fff':myC};border-radius:50%;display:inline-block;margin-top:1px"></span>`;
+    const selBg = isSel ? `background:${myC};border-radius:10px;` : '';
+    const selTxt = isSel ? 'color:#fff;font-weight:700;' : isToday ? `color:${myC};font-weight:700;` : '';
+    html += `<div class="day-cell" style="${selBg}cursor:pointer" onclick="selectHeuteDay(${idx})">
+      <div class="dc-n" style="${selTxt}">${DAYS[idx]}</div>
+      <div class="dc-d" style="${selTxt}">${d.getDate()}</div>
+      <div class="dc-s">${indicator}</div>
+    </div>`;
+  });
+  html += `</div>`;
+
+  // ── Day label (if not today) ──
+  if (!isViewingToday) {
+    const selFullLabel = selD.toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long'});
+    html += `<div style="padding:8px 16px 2px;display:flex;align-items:center;gap:8px">
+      <span style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:var(--c6)">${selFullLabel}</span>
+      ${weekOffset === 0 ? `<button onclick="selectHeuteDay(${todayIdx})" style="font-size:11px;padding:2px 8px;background:${myCl};color:${myCd};border:none;border-radius:20px;cursor:pointer;font-weight:600;font-family:'DM Sans',sans-serif">Heute ↩</button>` : ''}
+    </div>`;
+  }
+
+  // ── Events for selected day ──
+  const selShift = shifts[selStr];
+  const dayEvts = calendarEvents.filter(e => eventAppliesTo(e, selStr)).map(e => ({...e, event_date: selStr}));
+  const myEvts = dayEvts.filter(e => e.person === activeUser || e.person === 'both');
+  const partnerEvts = dayEvts.filter(e => partnerName && e.person === (isLucas ? 'isabell' : 'lucas'));
+  const typeIcon = (t) => ({event:'📅',absence:'✈️',birthday:'🎂',note:'📝'}[t] || '📅');
+  const evtTime = (e) => (e.end_date && e.end_date !== e.event_date) ? '' : (e.start_time ? `${e.start_time}${e.end_time?'–'+e.end_time:''}` : '');
+
+  html += `<div style="padding:6px 16px 0">`;
+
+  // Nachtdienst-Fortsetzung vom Vortag (0:00–7:00)
+  const selPrevShift = shifts[addDays(selStr, -1)];
+  if (selPrevShift === 'N') {
+    html += `<div class="evt-card" style="background:rgba(229,231,235,.5);border-color:rgba(100,100,100,.15);opacity:.85;margin-bottom:6px">
+      <div class="evt-bar evt-bar-i" style="opacity:.5"></div>
+      <div style="flex:1">
+        <div class="evt-title" style="color:var(--c4)">◀ Nachtdienst (Fortsetzung)</div>
+        <div class="evt-time">0:00 – 7:00</div>
       </div>
     </div>`;
-
-  // Offene Aufgaben
-  const open = allActive.filter(t => !isDone(t.id));
-  const done = allActive.filter(t => isDone(t.id));
-
-  if (open.length === 0 && done.length > 0) {
-    html += `
-      <div style="margin:14px 16px 0;background:var(--sage-l);border:1px solid rgba(78,110,82,.25);border-radius:var(--rl);padding:18px;text-align:center">
-        <div style="font-size:28px;margin-bottom:5px">🎉</div>
-        <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--sage-d)">Alles erledigt!</div>
-        <div style="font-size:12px;color:var(--sage-d);opacity:.7;margin-top:3px">Klasse Woche, ihr zwei</div>
-      </div>`;
   }
 
-  if (open.length > 0) {
-    html += `<div class="sec-lbl">Noch offen <span class="sec-lbl-count">${open.length}</span></div>`;
-    html += `<div class="card"><div class="card-body">`;
-    open.slice(0, 8).forEach(t => {
-      const a = assignTask(t.assign, t.id, weekOffset), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
-      html += taskRowHTML(t, a, day);
-    });
-    if (open.length > 8) {
-      html += `<div style="padding:12px 0;text-align:center;font-size:13px;color:var(--c4);cursor:pointer;font-weight:600" onclick="goTab(1)">+${open.length - 8} weitere →</div>`;
-    }
-    html += `</div></div>`;
+  // Isabell's own shift card
+  if (isIsabell && selShift) {
+    const nightStr = selShift === 'N' ? '19:00 – 0:00 (bis 7:00 Folgetag →)' : '';
+    const sLabel = selShift === 'N' ? `Nachtdienst · ${nightStr}` : ({L:'Langdienst · 6:30–19:30',S:'Spätdienst · 13:30–19:30',U:'Urlaub / Frei'}[selShift] || selShift);
+    html += `<div class="evt-card" style="background:${myCl};border-color:${myBorder};margin-bottom:6px">
+      <div class="evt-bar evt-bar-i"></div>
+      <div style="flex:1"><div class="evt-title"><span class="sh sh${selShift}">${selShift}</span> ${sLabel}</div></div>
+      <button style="background:none;border:none;font-size:13px;cursor:pointer;color:var(--c4);padding:4px" onclick="event.stopPropagation();openShiftFor('${selStr}')">✏️</button>
+    </div>`;
   }
 
-  if (done.length > 0) {
-    html += `<div class="sec-lbl" style="color:var(--c4)">Erledigt <span class="sec-lbl-count">${done.length}</span></div>`;
-    html += `<div class="card"><div class="card-body">`;
-    done.forEach(t => {
-      const a = assignTask(t.assign, t.id, weekOffset), day = t.day ? bestDay(dates, a === 'both' ? 'lucas' : a, t.day) : bestDay(dates, a === 'both' ? 'lucas' : a);
-      html += taskRowHTML(t, a, day);
-    });
-    html += `</div></div>`;
-  }
-
-  // Einkauf preview
-  if (openG.length > 0) {
-    html += `
-      <div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">
-        <span>Einkauf <span class="sec-lbl-count">${openG.length}</span></span>
-        <button class="btn-ghost" style="font-size:11px" onclick="goTab(3)">Alle ansehen</button>
+  // My calendar events
+  myEvts.forEach(e => {
+    const t2 = evtTime(e);
+    const dRange = (e.end_date && e.end_date !== e.event_date) ? `${new Date(e.event_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})}–${new Date(e.end_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})}` : '';
+    html += `<div class="evt-card" style="margin-bottom:6px" onclick="openEventModal('${selStr}',${e.id})">
+      <div class="evt-bar evt-bar-${e.person==='both'?'b':(isIsabell?'i':'l')}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="evt-title">${typeIcon(e.type)} ${e.title}</div>
+        ${(t2||dRange)?`<div class="evt-time">${dRange||t2}</div>`:''}
       </div>
-      <div class="card"><div class="card-body">`;
-    openG.slice(0, 4).forEach(g => {
-      html += `
-        <div class="task-row" onclick="toggleGrocery(${g.id})">
-          <div class="cb-wrap"><div class="cb" id="gcb-${g.id}"></div></div>
-          <span style="flex:1;font-size:14px;font-weight:500">${g.name}</span>
-          <span style="font-size:11px;color:var(--c4)">${g.cat !== 'Sonstiges' ? g.cat : ''}</span>
-        </div>`;
-    });
-    if (openG.length > 4) {
-      html += `<div style="padding:10px 0;text-align:center;font-size:13px;color:var(--c4);cursor:pointer;font-weight:600" onclick="goTab(3)">+${openG.length - 4} weitere</div>`;
+    </div>`;
+  });
+
+  // Partner compact card
+  const pShift = isLucas ? selShift : null;
+  if (partnerName && (pShift || partnerEvts.length > 0)) {
+    html += `<div style="background:${pCl};border:1px solid ${pBorder};border-radius:var(--r);padding:9px 11px;margin-bottom:6px">
+      <div style="font-size:10px;color:${pCd};font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">${partnerName}</div>`;
+    if (pShift) {
+      const pSLabel = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[pShift];
+      html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:${partnerEvts.length?'5px':'0'}"><span class="sh sh${pShift}">${pShift}</span><span style="font-size:12px;color:var(--c5)">${pSLabel}</span></div>`;
     }
+    partnerEvts.slice(0,3).forEach(e => {
+      const t2 = evtTime(e);
+      html += `<div style="font-size:12px;color:${pCd};display:flex;align-items:center;gap:4px;margin-top:2px">${typeIcon(e.type)} ${e.title}${t2?` <span style="color:var(--c4);font-size:11px">${t2}</span>`:''}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Schicht eintragen for Isabell if missing
+  if (isIsabell && !selShift) {
+    html += `<button class="btn-ghost" style="font-size:11px;padding:4px 10px;margin-bottom:6px" onclick="openShiftFor('${selStr}')">+ Schicht eintragen</button>`;
+  }
+
+  // + Termin button
+  html += `<button onclick="openEventModal('${selStr}',activeUser||'both')" style="font-size:12px;padding:5px 12px;background:${myCl};color:${myCd};border:1px solid ${myBorder};border-radius:20px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer">+ Termin</button>`;
+  html += `</div>`;
+
+  // ── Notizen ──
+  html += renderNotizen();
+
+  // ── Task recommendations for selected day ──
+  const recsDayMatch = myOpen.filter(t => taskMatchesDay(t, selDayName));
+  const recsNoPref   = myOpen.filter(t => !t.day && !recsDayMatch.includes(t));
+  const recsOther    = myOpen.filter(t => !recsDayMatch.includes(t) && !recsNoPref.includes(t));
+  const recs = [...recsDayMatch, ...recsNoPref, ...recsOther].slice(0, 4);
+  const doneToday = (isViewingToday && weekOffset === 0) ? myDone.slice(0, 3) : [];
+
+  if (recs.length > 0 || doneToday.length > 0) {
+    const recLabel = isViewingToday ? 'Aufgaben heute' : `Aufgaben ${selDayName}.`;
+    const allTab = myOpen.length > 0 ? (isLucas || myOpen.some(t => t.cat === 'garten') ? 1 : 1) : 1;
+    html += `<div class="sec-lbl">${recLabel} <span class="sec-lbl-count">${myDone.length}/${myOpen.length+myDone.length}</span>
+      ${myOpen.length > recs.length ? `<span onclick="goTab(1)" style="font-size:11px;color:${myC};font-weight:600;cursor:pointer;margin-left:4px">Alle →</span>` : ''}
+    </div>`;
+    html += `<div class="card"><div class="card-body">`;
+    recs.forEach(t => {
+      const a = assignTask(t.assign, t.id, weekOffset);
+      const day = t.day ? bestDay(dates, a==='both'?(activeUser||'lucas'):a, t.day) : null;
+      html += taskRowHTML(t, a, day);
+    });
+    if (doneToday.length > 0) {
+      html += `<div class="done-sep">Heute erledigt</div>`;
+      doneToday.forEach(t => {
+        const a = assignTask(t.assign, t.id, weekOffset);
+        const day = t.day ? bestDay(dates, a==='both'?(activeUser||'lucas'):a, t.day) : null;
+        html += taskRowHTML(t, a, day);
+      });
+    }
+    html += `</div></div>`;
+  } else if (myOpen.length === 0 && myDone.length > 0 && weekOffset === 0) {
+    html += `<div style="margin:12px 16px 0;background:${myCl};border:1px solid ${myBorder};border-radius:var(--rl);padding:14px;text-align:center">
+      <div style="font-size:24px;margin-bottom:4px">🎉</div>
+      <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:${myCd}">Alle Aufgaben erledigt!</div>
+    </div>`;
+  }
+
+  // ── Wochenrückblick (Wochenende) ──
+  const todayDow = new Date().getDay();
+  if ((todayDow === 5 || todayDow === 6 || todayDow === 0) && weekOffset === 0 && myDone.length > 0) {
+    const total = myOpen.length + myDone.length;
+    const pct = total ? Math.round(myDone.length / total * 100) : 0;
+    const emo2 = pct >= 80 ? '🎉' : pct >= 50 ? '👍' : '💪';
+    html += `<div style="margin:10px 16px 0;background:var(--gold-l);border:1px solid rgba(160,120,24,.2);border-radius:var(--rl);padding:11px 14px;display:flex;align-items:center;gap:10px">
+      <span style="font-size:22px">${emo2}</span>
+      <div><div style="font-family:'Fraunces',serif;font-size:13px;font-weight:700;color:var(--gold-d)">Wochenrückblick</div>
+      <div style="font-size:11px;color:var(--gold-d);opacity:.85;margin-top:1px">${myDone.length}/${total} erledigt · ${pct}%</div></div>
+    </div>`;
+  }
+
+  // ── Grocery preview ──
+  const openG = groceries.filter(g => !g.done);
+  if (openG.length > 0) {
+    html += `<div class="sec-lbl" style="display:flex;align-items:center;justify-content:space-between">
+      <span>Einkauf <span class="sec-lbl-count">${openG.length}</span></span>
+      <button class="btn-ghost" style="font-size:11px" onclick="goTab(3)">Alle</button>
+    </div><div class="card"><div class="card-body">`;
+    openG.slice(0, 3).forEach(g => {
+      html += `<div class="task-row" onclick="toggleGrocery(${g.id})">
+        <div class="cb-wrap"><div class="cb" id="gcb-${g.id}"></div></div>
+        <span style="flex:1;font-size:14px;font-weight:500">${g.name}</span>
+      </div>`;
+    });
+    if (openG.length > 3) html += `<div style="padding:10px 0;text-align:center;font-size:13px;color:var(--c4);cursor:pointer;font-weight:600" onclick="goTab(3)">+${openG.length-3} weitere →</div>`;
     html += `</div></div>`;
   }
 
-  html += `<div style="height:16px"></div>`;
+  // ── Task management button ──
+  html += `<div style="padding:4px 16px 8px">
+    <button onclick="openMgmtSheet()" style="width:100%;padding:13px 16px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);font-size:14px;font-weight:600;color:var(--c5);font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center">
+      ⚙️ Aufgaben verwalten
+    </button>
+  </div>`;
+
+  // ── Push settings ──
+  html += renderPushSettings();
+
   return html;
 }
 
@@ -1633,13 +2186,21 @@ function renderTasks(cat, dates) {
   const catName = cat === 'putz' ? 'Putzen' : 'Garten';
   const isAbs = absences.has(weekKey());
 
+  const wkStart = dates[0], wkEnd = dates[6];
+  const wkLabel = `KW ${weekNum(wkStart)} · ${wkStart.getDate()}.–${wkEnd.getDate()}. ${wkStart.toLocaleString('de',{month:'short'})}`;
+  const isCurrentWk = weekOffset === 0;
+
   let html = `
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 4px">
       <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:var(--c6)">${CAT_ICONS[cat]} ${catName}</div>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:13px;color:var(--c4)">${done.length}/${catTasks.length}</span>
         <button class="btn-primary" onclick="openTaskModal('${cat}')">+ Neu</button>
       </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:4px 16px 10px">
+      <span style="font-size:13px;color:var(--c4);font-weight:500">${wkLabel}</span>
+      ${!isCurrentWk ? `<button onclick="weekOffset=0;render()" style="font-size:11px;padding:2px 8px;background:var(--sage-l);color:var(--sage-d);border:none;border-radius:20px;cursor:pointer;font-weight:600">Heute</button>` : ''}
     </div>`;
 
   // Garten: absence toggle
@@ -1757,23 +2318,11 @@ function renderKalender() {
   const daysInMonth = new Date(calYear, calMonth, 0).getDate();
   const firstDow = (new Date(calYear, calMonth - 1, 1).getDay() + 6) % 7;
 
-  // Check if next week is missing shifts (warn)
+  // Missing shifts warning
   const nextWkDates = weekDates(1);
-  const nextWkMissingShifts = nextWkDates.filter(d => !shifts[fmtDate(d)]).length >= 5;
+  const nextWkMissing = nextWkDates.filter(d => !shifts[fmtDate(d)]).length >= 5;
 
-  // Week fairness (current week)
-  const allT = tasks.filter(t => t.recur !== 'once');
-  const lT = allT.filter(t => assignTask(t.assign, t.id, weekOffset) === 'lucas');
-  const iT = allT.filter(t => assignTask(t.assign, t.id, weekOffset) === 'isabell');
-  const lD = lT.filter(t => isDone(t.id)).length;
-  const iD = iT.filter(t => isDone(t.id)).length;
-  const lP = lT.length ? Math.round(lD / lT.length * 100) : 0;
-  const iP = iT.length ? Math.round(iD / iT.length * 100) : 0;
-
-  let html = ``;
-
-  // ── Month nav ──
-  html += `
+  let html = `
     <div style="display:flex;align-items:center;padding:12px 14px 4px;gap:6px">
       <button class="cal-nav-btn" onclick="calPrev()">‹</button>
       <div style="flex:1;text-align:center;font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:var(--c6)">${monthName}</div>
@@ -1781,135 +2330,124 @@ function renderKalender() {
       <button class="cal-nav-btn" onclick="calNext()">›</button>
     </div>`;
 
-  // ── Missing shifts warning ──
-  if (nextWkMissingShifts) {
+  if (nextWkMissing) {
     html += `<div class="avail-warn">
-      <span style="font-size:17px">⚠️</span>
-      <div style="font-size:12px;color:var(--gold-d)"><strong>Nächste Woche</strong> — Isabells Schichten noch nicht eingetragen</div>
-      <button class="btn-ghost" style="font-size:11px;padding:5px 10px;margin-left:auto;flex-shrink:0" onclick="openImport()">Importieren</button>
+      <span style="font-size:16px">⚠️</span>
+      <div style="font-size:12px;color:var(--gold-d);flex:1"><strong>Isabells Schichten</strong> nächste Woche fehlen</div>
+      <button class="btn-ghost" style="font-size:11px;padding:4px 9px;flex-shrink:0" onclick="openImport()">Importieren</button>
     </div>`;
   }
 
-  // ── Calendar grid ──
+  // Legend + add event button
+  html += `<div style="display:flex;align-items:center;padding:4px 14px 6px;gap:8px">
+    <span class="sh shL" style="font-size:8px">L</span><span style="font-size:10px;color:var(--c5)">Lang</span>
+    <span class="sh shS" style="font-size:8px">S</span><span style="font-size:10px;color:var(--c5)">Spät</span>
+    <span class="sh shN" style="font-size:8px">N</span><span style="font-size:10px;color:var(--c5)">Nacht</span>
+    <span class="sh shU" style="font-size:8px">U</span><span style="font-size:10px;color:var(--c5)">Urlaub</span>
+    <button class="btn-primary" style="margin-left:auto;padding:6px 12px;font-size:12px" onclick="openEventModal('${today}')">+ Termin</button>
+  </div>`;
+
   html += `<div class="kal-grid">`;
   DAYS.forEach(d => html += `<div class="kal-dh">${d}</div>`);
   for (let i = 0; i < firstDow; i++) html += `<div></div>`;
+
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const sh = shifts[ds];
     const isToday = ds === today;
     const isSelected = ds === selectedCalDay;
-    const wk = weekKeyForDate(ds);
-    const dayTasks = getTasksForCalDay(ds);
-    const wkOff = weekOffsetForDate(ds);
-    // Dot per task (max 3)
-    let dots = '';
-    const maxDots = 3;
-    let shown = 0;
-    for (let ti = 0; ti < dayTasks.length && shown < maxDots; ti++) {
-      const t = dayTasks[ti];
-      const done = !!(comps[wk] && comps[wk][t.id]);
-      const who = assignTask(t.assign, t.id, wkOff);
-      const cls = done ? 'kal-dot-done' : who === 'lucas' ? 'kal-dot-l' : who === 'isabell' ? 'kal-dot-i' : 'kal-dot-b';
-      dots += `<span class="kal-dot ${cls}"></span>`;
-      shown++;
-    }
-    if (dayTasks.length > maxDots) dots += `<span style="font-size:6px;color:var(--c4);line-height:1">+</span>`;
+    // Events for this day (shift as bar + calendar events as bars)
+    const dayEvts = calendarEvents.filter(e => eventAppliesTo(e, ds));
+    const prevSh = shifts[addDays(ds, -1)];
+    const hasNightCont = prevSh === 'N';
+    const shiftLabel = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[sh] || '';
+    let evtBars = `<div class="kal-evts">`;
+    if (hasNightCont) evtBars += `<span class="cal-shift-bar cal-shift-N" style="opacity:.65">◀ –7:00</span>`;
+    if (sh) evtBars += `<span class="cal-shift-bar cal-shift-${sh}">${sh} ${shiftLabel.slice(0,4)}</span>`;
+    const maxBars = (sh || hasNightCont) ? 0 : 2;
+    dayEvts.slice(0, maxBars).forEach(e => {
+      const cls = e.person === 'lucas' ? 'cal-evt-l' : e.person === 'isabell' ? 'cal-evt-i' : 'cal-evt-b';
+      const short = e.title.length > 7 ? e.title.slice(0,6)+'…' : e.title;
+      evtBars += `<span class="cal-evt-chip ${cls}">${short}</span>`;
+    });
+    const overflow = dayEvts.length - maxBars;
+    if (overflow > 0) evtBars += `<span style="font-size:7px;color:var(--c4);padding-left:2px">+${overflow}</span>`;
+    evtBars += `</div>`;
+
     html += `
       <div class="kal-dc${isToday ? ' kal-today' : ''}${isSelected ? ' kal-selected' : ''}" onclick="openDaySheet('${ds}')">
         <div class="kal-dn">${d}</div>
-        ${sh ? `<span class="sh sh${sh}" style="font-size:7px;padding:1px 4px;line-height:1.6">${sh}</span>` : `<div style="height:16px"></div>`}
-        <div class="kal-dots">${dots}</div>
+        ${evtBars}
       </div>`;
   }
   html += `</div>`;
 
-  // ── Legend ──
-  html += `<div style="padding:2px 14px 10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <span class="sh shL" style="font-size:8px">L</span><span style="font-size:10px;color:var(--c5)">Lang</span>
-    <span class="sh shS" style="font-size:8px">S</span><span style="font-size:10px;color:var(--c5)">Spät</span>
-    <span class="sh shN" style="font-size:8px">N</span><span style="font-size:10px;color:var(--c5)">Nacht</span>
-    <span class="sh shU" style="font-size:8px">U</span><span style="font-size:10px;color:var(--c5)">Urlaub</span>
-    <span style="font-size:9px;color:var(--c3);margin-left:auto">● offen  ● erledigt</span>
-  </div>`;
+  // Monthly event list — upcoming only, recurring events expanded
+  const monthStart = `${calYear}-${String(calMonth).padStart(2,'0')}-01`;
+  const monthEnd = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+  const agendaFrom = today > monthStart ? today : monthStart; // skip past days
+  const monthEvts = calendarEvents.flatMap(e => occurrencesInRange(e, agendaFrom, monthEnd))
+    .sort((a,b) => a.event_date < b.event_date ? -1 : 1);
 
-  // ── This week availability ──
-  const {l, i} = weekFree(weekOffset);
-  const wkLabel = weekOffset === 0 ? 'Diese Woche' : weekOffset < 0 ? `${Math.abs(weekOffset)} Wo. zurück` : `${weekOffset} Wo. vor`;
-  html += `<div style="padding:0 14px 10px">
-    <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">${wkLabel}</div>
-    <div style="display:flex;gap:7px">
-      <div class="day-avail-card" style="background:var(--sage-l);border-color:rgba(78,110,82,.15)">
-        <div style="font-size:10px;color:var(--sage-d);font-weight:700;letter-spacing:.3px">LUCAS</div>
-        <div style="font-size:20px;font-weight:700;font-family:'Fraunces',serif;color:var(--sage)">~${l}h</div>
-        <div style="font-size:10px;color:var(--sage-d);opacity:.7;margin-top:1px">frei</div>
-      </div>
-      <div class="day-avail-card" style="background:var(--lav-l);border-color:rgba(114,100,160,.15)">
-        <div style="font-size:10px;color:var(--lav-d);font-weight:700;letter-spacing:.3px">ISABELL</div>
-        <div style="font-size:20px;font-weight:700;font-family:'Fraunces',serif;color:var(--lav)">~${i}h</div>
-        <div style="font-size:10px;color:var(--lav-d);opacity:.7;margin-top:1px">frei</div>
-      </div>
-    </div>
-  </div>`;
-
-  // ── Fortschritt (compact rings) ──
-  const R = 15, circ = +(2 * Math.PI * R).toFixed(1);
-  function miniRing(pct, color) {
-    const off = +(circ - pct / 100 * circ).toFixed(1);
-    return `<svg width="38" height="38" viewBox="0 0 38 38" style="transform:rotate(-90deg)">
-      <circle fill="none" stroke="var(--c2)" stroke-width="4" cx="19" cy="19" r="${R}"/>
-      <circle fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round"
-        cx="19" cy="19" r="${R}" stroke-dasharray="${circ}" stroke-dashoffset="${off}"/>
-    </svg>`;
-  }
-  html += `<div style="padding:0 14px 10px">
-    <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Fortschritt</div>
-    <div style="background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);box-shadow:var(--sh);display:flex;gap:0">
-      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px;border-right:1px solid var(--c2)">
-        <div style="position:relative;width:38px;height:38px;flex-shrink:0">
-          ${miniRing(lP, 'var(--sage)')}
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--c6)">${lP}%</div>
-        </div>
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--c6)">Lucas</div>
-          <div style="font-size:11px;color:var(--c4)">${lD}/${lT.length}</div>
-        </div>
-      </div>
-      <div style="flex:1;display:flex;align-items:center;gap:10px;padding:12px 14px">
-        <div style="position:relative;width:38px;height:38px;flex-shrink:0">
-          ${miniRing(iP, 'var(--lav)')}
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--c6)">${iP}%</div>
-        </div>
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--c6)">Isabell</div>
-          <div style="font-size:11px;color:var(--c4)">${iD}/${iT.length}</div>
-        </div>
-      </div>
-    </div>
-  </div>`;
-
-  // ── Fairness history ──
-  if (fairLog.length > 0) {
-    html += `<div style="padding:0 14px 10px">
-      <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Verlauf</div>
-      <div style="background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);box-shadow:var(--sh);padding:10px 14px">`;
-    [...fairLog].slice(0, 5).reverse().forEach(row => {
-      const tot = row.lucas_done + row.isabell_done;
-      const lp = tot ? Math.round(row.lucas_done / tot * 100) : 50;
-      html += `<div style="margin-bottom:9px">
-        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
-          <span style="color:var(--c4)">${row.week_key}</span>
-          <span style="color:var(--sage-d);font-weight:600">L ${row.lucas_done}</span>
-          <span style="color:var(--lav-d);font-weight:600">I ${row.isabell_done}</span>
-        </div>
-        <div class="fair-bar" style="height:14px;border-radius:7px">
-          <div class="fair-l" style="width:${lp}%"></div>
-          <div class="fair-i" style="width:${100-lp}%"></div>
+  if (monthEvts.length > 0) {
+    html += `<div style="padding:8px 14px 4px">
+      <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px">Nächste Termine</div>
+    </div>`;
+    monthEvts.forEach(e => {
+      const dEvt = new Date(e.event_date + 'T12:00:00');
+      const dLabel = dEvt.toLocaleDateString('de', {weekday:'short', day:'numeric', month:'short'});
+      const barCls = e.person === 'lucas' ? 'evt-bar-l' : e.person === 'isabell' ? 'evt-bar-i' : 'evt-bar-b';
+      const personTxt = e.person === 'lucas' ? 'Lucas' : e.person === 'isabell' ? 'Isabell' : 'Beide';
+      const typeIcon = {event:'📅',absence:'✈️',birthday:'🎂',note:'📝'}[e.type] || '📅';
+      const recurIcon = {weekly:'🔁',monthly:'🔁',yearly:'🔁'}[e.recur] || '';
+      const timeStr = (e.end_date && e.end_date !== e.event_date)
+        ? ` · ${new Date(e.event_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})} – ${new Date(e.end_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'})}`
+        : (e.start_time ? ` · ${e.start_time}${e.end_time ? '–'+e.end_time : ''}` : '');
+      html += `<div class="evt-card" style="margin:0 14px 6px" onclick="openEventModal('${e.event_date}', ${e.id})">
+        <div class="evt-bar ${barCls}"></div>
+        <div style="flex:1;min-width:0">
+          <div class="evt-title">${typeIcon} ${e.title} ${recurIcon}</div>
+          <div class="evt-time">${dLabel}${timeStr} · ${personTxt}</div>
         </div>
       </div>`;
     });
-    html += `</div></div>`;
   }
+
+  // Availability this week + progress
+  const wkFree = weekFree(weekOffset);
+  const lFree = wkFree.l, iFree = wkFree.i;
+  const allT = tasks.filter(t => t.recur !== 'once');
+  const lT = allT.filter(t => assignTask(t.assign, t.id, weekOffset) === 'lucas');
+  const iT = allT.filter(t => assignTask(t.assign, t.id, weekOffset) === 'isabell');
+  const lD = lT.filter(t => isDone(t.id)).length;
+  const iD = iT.filter(t => isDone(t.id)).length;
+  const lP = lT.length ? Math.round(lD/lT.length*100) : 0;
+  const iP = iT.length ? Math.round(iD/iT.length*100) : 0;
+  const R = 15, circ = +(2*Math.PI*R).toFixed(1);
+  const miniRing = (pct, color) => {
+    const off = +(circ - pct/100*circ).toFixed(1);
+    return `<svg width="36" height="36" viewBox="0 0 36 36" style="transform:rotate(-90deg)"><circle fill="none" stroke="var(--c2)" stroke-width="4" cx="18" cy="18" r="${R}"/><circle fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" cx="18" cy="18" r="${R}" stroke-dasharray="${circ}" stroke-dashoffset="${off}"/></svg>`;
+  };
+
+  html += `<div style="padding:8px 14px 4px">
+    <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px">Fortschritt diese Woche</div>
+  </div>
+  <div style="margin:0 14px 10px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);box-shadow:var(--sh);display:flex">
+    <div style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px;border-right:1px solid var(--c2)">
+      <div style="position:relative;width:36px;height:36px;flex-shrink:0">
+        ${miniRing(lP,'var(--sage)')}
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--c6)">${lP}%</div>
+      </div>
+      <div><div style="font-size:12px;font-weight:600;color:var(--c6)">Lucas</div><div style="font-size:10px;color:var(--c4)">${lD}/${lT.length}</div></div>
+    </div>
+    <div style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 12px">
+      <div style="position:relative;width:36px;height:36px;flex-shrink:0">
+        ${miniRing(iP,'var(--lav)')}
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--c6)">${iP}%</div>
+      </div>
+      <div><div style="font-size:12px;font-weight:600;color:var(--c6)">Isabell</div><div style="font-size:10px;color:var(--c4)">${iD}/${iT.length}</div></div>
+    </div>
+  </div>`;
 
   html += `<div style="height:80px"></div>`;
   return html;
@@ -1931,67 +2469,104 @@ function openDaySheet(dateStr) {
 
 function renderDaySheetContent(dateStr) {
   const d = new Date(dateStr + 'T12:00:00');
-  const dow = (d.getDay() + 6) % 7; // 0=Mo
   const dateLabel = d.toLocaleDateString('de', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
   const sh = shifts[dateStr];
-  const shiftInfo = {
-    L:'Langdienst (6:30–19:30)', S:'Spätdienst (13:30–19:30)',
-    N:'Nachtdienst (19:00–7:00)', U:'Urlaub / Frei'
-  };
+  const prevDayStr = addDays(dateStr, -1);
+  const prevSh = shifts[prevDayStr];
+  const hasNightCont = prevSh === 'N'; // Nachtdienst vom Vortag läuft bis 7:00
+  const shiftLabels = {L:'Langdienst (6:30–19:30)',S:'Spätdienst (13:30–19:30)',N:'Nachtdienst (19:00–7:00)',U:'Urlaub / Frei'};
   const iHours = isabellFree(dateStr);
   const lHours = lucasFree(dateStr);
-  const wk = weekKeyForDate(dateStr);
-  const wkOff = weekOffsetForDate(dateStr);
 
-  let html = `<div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--c6);margin-bottom:12px">${dateLabel}</div>`;
+  const dayEvts = calendarEvents.filter(e => eventAppliesTo(e, dateStr)).map(e => ({...e, event_date: dateStr}));
+  const lEvts = dayEvts.filter(e => e.person === 'lucas');
+  const iEvts = dayEvts.filter(e => e.person === 'isabell');
+  const bEvts = dayEvts.filter(e => e.person === 'both');
 
-  // Availability cards
-  html += `<div style="display:flex;gap:7px;margin-bottom:14px">
-    <div class="day-avail-card" style="background:var(--lav-l);border-color:rgba(114,100,160,.15)">
-      <div style="font-size:10px;color:var(--lav-d);font-weight:700;letter-spacing:.3px">ISABELL</div>
-      ${sh ? `<div style="display:flex;align-items:center;gap:5px;margin-top:4px"><span class="sh sh${sh}" style="font-size:9px">${sh}</span><span style="font-size:11px;color:var(--c5)">${shiftInfo[sh]}</span></div>` : `<div style="font-size:11px;color:var(--c4);margin-top:4px">Kein Dienst</div>`}
-      <div style="font-size:17px;font-weight:700;font-family:'Fraunces',serif;color:var(--lav);margin-top:4px">~${iHours}h frei</div>
-    </div>
-    <div class="day-avail-card" style="background:var(--sage-l);border-color:rgba(78,110,82,.15)">
-      <div style="font-size:10px;color:var(--sage-d);font-weight:700;letter-spacing:.3px">LUCAS</div>
-      <div style="font-size:11px;color:var(--c4);margin-top:4px">${lHours >= 8 ? 'Wochenende 🎉' : lHours > 0 ? 'Feierabend' : 'Nicht verfügbar'}</div>
-      <div style="font-size:17px;font-weight:700;font-family:'Fraunces',serif;color:var(--sage);margin-top:4px">~${lHours}h frei</div>
-    </div>
-  </div>`;
+  const typeIcon = (t) => ({event:'📅',absence:'✈️',birthday:'🎂',note:'📝'}[t] || '📅');
+  const timeStr = (e) => {
+    if (e.end_date && e.end_date !== e.event_date) {
+      const d1 = new Date(e.event_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'});
+      const d2 = new Date(e.end_date+'T12:00:00').toLocaleDateString('de',{day:'numeric',month:'short'});
+      return `${d1} – ${d2}`;
+    }
+    return e.start_time ? `${e.start_time}${e.end_time ? '–'+e.end_time : ''}` : 'Ganztägig';
+  };
 
-  // Tasks for this day
-  const dayTasks = getTasksForCalDay(dateStr);
-  if (dayTasks.length > 0) {
-    html += `<div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:6px">Aufgaben</div>
-    <div style="border:1px solid var(--c2);border-radius:var(--r);overflow:hidden;margin-bottom:14px">`;
-    dayTasks.forEach((t, idx) => {
-      const done = !!(comps[wk] && comps[wk][t.id]);
-      const who = assignTask(t.assign, t.id, wkOff);
-      const whoCls = who === 'lucas' ? 'who-l' : who === 'isabell' ? 'who-i' : 'who-b';
-      const whoTxt = who === 'lucas' ? 'Lucas' : who === 'isabell' ? 'Isabell' : 'Beide';
-      const rText = {daily:'tägl.',weekly:'wöch.',biweekly:'2-wöch.',once:'einm.'}[t.recur] || 'wöch.';
-      const isLast = idx === dayTasks.length - 1;
-      const durMin = t.duration_min || 30;
-      const durLabel = durMin < 60 ? `${durMin}min` : `${durMin/60}h`;
-      html += `
-        <div class="day-task-item" style="border-bottom:${isLast ? 'none' : '1px solid var(--c2)'}" onclick="toggleTask(${t.id},'${wk}');refreshDaySheet('${dateStr}')">
-          <div class="day-task-cb ${done ? 'done' : ''}"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:500;color:${done ? 'var(--c4)' : 'var(--c6)'};text-decoration:${done ? 'line-through' : 'none'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</div>
-            <div style="font-size:11px;color:var(--c4);margin-top:1px">${rText} · ~${durLabel}</div>
-          </div>
-          <span class="who-badge ${whoCls}" style="font-size:10px;padding:3px 7px">${whoTxt}</span>
-        </div>`;
-    });
-    html += `</div>`;
-  } else {
-    html += `<div style="text-align:center;padding:14px;color:var(--c4);font-size:13px;margin-bottom:10px">Keine tagsspezifischen Aufgaben</div>`;
+  function evtCard(e) {
+    const barCls = e.person === 'lucas' ? 'evt-bar-l' : e.person === 'isabell' ? 'evt-bar-i' : 'evt-bar-b';
+    return `<div class="evt-card" onclick="event.stopPropagation();openEventModal('${dateStr}',${e.id})">
+      <div class="evt-bar ${barCls}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="evt-title">${typeIcon(e.type)} ${e.title}</div>
+        <div class="evt-time">${timeStr(e)}${e.note ? ' · '+e.note : ''}</div>
+      </div>
+    </div>`;
   }
 
-  // Shift button
-  html += `<button class="btn-ghost" style="width:100%;padding:12px;font-size:14px;border-radius:var(--r)" onclick="closeModal('daySheet');openShiftFor('${dateStr}')">
-    ${sh ? '✏️ Schicht bearbeiten' : '📋 Schicht eintragen'}
+  let html = `<div style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:var(--c6);margin-bottom:14px">${dateLabel}</div>`;
+
+  // ── Isabell section ──
+  const isabelShiftBadge = sh ? `<span class="sh sh${sh}" style="margin-left:4px">${sh}</span>` : (hasNightCont ? `<span class="sh shN" style="margin-left:4px;opacity:.7">N</span>` : '');
+  html += `<div class="evt-person-hdr" style="color:var(--lav-d)">
+    <span style="width:8px;height:8px;background:var(--lav);border-radius:50%;display:inline-block"></span>
+    Isabell ${isabelShiftBadge}
+  </div>`;
+
+  // Nachtdienst-Fortsetzung vom Vortag (0:00–7:00)
+  if (hasNightCont) {
+    html += `<div class="evt-card" style="background:rgba(229,231,235,.5);border-color:rgba(100,100,100,.15);opacity:.85">
+      <div class="evt-bar evt-bar-i" style="opacity:.5"></div>
+      <div style="flex:1">
+        <div class="evt-title" style="color:var(--c4)">◀ Nachtdienst (Fortsetzung)</div>
+        <div class="evt-time">0:00 – 7:00 · von ${new Date(prevDayStr+'T12:00:00').toLocaleDateString('de',{weekday:'short',day:'numeric',month:'short'})}</div>
+      </div>
+    </div>`;
+  }
+
+  if (sh) {
+    // Nachtdienst aufgeteilt: 19:00–0:00 heute, →7:00 Folgetag
+    const shiftTimeStr = sh === 'N'
+      ? '19:00 – 0:00 (bis 7:00 Folgetag →)'
+      : {L:'6:30–19:30',S:'13:30–19:30',U:'Frei / Urlaub'}[sh] || '';
+    html += `<div class="evt-card" style="background:var(--lav-l);border-color:rgba(114,100,160,.2)">
+      <div class="evt-bar evt-bar-i"></div>
+      <div style="flex:1">
+        <div class="evt-title">${shiftLabels[sh]}</div>
+        <div class="evt-time">${shiftTimeStr}</div>
+      </div>
+      <button class="mgmt-btn" style="background:none;border:1px solid rgba(114,100,160,.3);color:var(--lav-d);font-size:11px" onclick="event.stopPropagation();closeModal('daySheet');openShiftFor('${dateStr}')">✏️</button>
+    </div>`;
+  }
+  iEvts.forEach(e => html += evtCard(e));
+
+  // ── Lucas section ──
+  html += `<div class="evt-person-hdr" style="color:var(--sage-d);margin-top:6px">
+    <span style="width:8px;height:8px;background:var(--sage);border-radius:50%;display:inline-block"></span>
+    Lucas · ~${lHours}h frei
+  </div>`;
+  lEvts.forEach(e => html += evtCard(e));
+
+  // ── Gemeinsam section ──
+  if (bEvts.length > 0) {
+    html += `<div class="evt-person-hdr" style="color:var(--gold-d);margin-top:6px">
+      <span style="width:8px;height:8px;background:var(--gold);border-radius:50%;display:inline-block"></span>
+      Gemeinsam
+    </div>`;
+    bEvts.forEach(e => html += evtCard(e));
+  }
+
+  // ── Single add button ──
+  html += `<button class="evt-add-btn" style="width:100%;margin-top:14px;justify-content:center;font-size:14px;font-weight:600" onclick="openEventModal('${dateStr}', activeUser||'both')">
+    <span style="font-size:18px;line-height:1">+</span> Termin hinzufügen
   </button>`;
+
+  // Schicht eintragen if missing
+  if (!sh) {
+    html += `<button class="btn-ghost" style="width:100%;padding:11px;font-size:13px;border-radius:var(--r);margin-top:8px" onclick="closeModal('daySheet');openShiftFor('${dateStr}')">
+      📋 Isabells Schicht eintragen
+    </button>`;
+  }
 
   return html;
 }
@@ -2074,6 +2649,143 @@ function refreshMgmtSheet() {
 }
 
 /* ══════════════════════════════════════════
+   COLLAPSIBLE TASK MANAGEMENT (Overview)
+══════════════════════════════════════════ */
+function toggleTaskMgmt() {
+  taskMgmtOpen = !taskMgmtOpen;
+  localStorage.setItem('zuhause_taskMgmt', String(taskMgmtOpen));
+  const body = document.getElementById('taskMgmtBody');
+  const arrow = document.querySelector('.collapse-arrow');
+  if (!body || !arrow) return;
+  body.classList.toggle('open', taskMgmtOpen);
+  arrow.classList.toggle('open', taskMgmtOpen);
+  if (taskMgmtOpen && body.innerHTML.trim() === '') {
+    body.innerHTML = renderMgmtContent();
+  }
+}
+
+/* ══════════════════════════════════════════
+   CALENDAR EVENTS
+══════════════════════════════════════════ */
+let _evPerson = 'lucas'; // tracks segment control state
+
+function checkOvernight() {
+  const s = document.getElementById('evStart').value;
+  const e = document.getElementById('evEnd').value;
+  const hint = document.getElementById('overnightHint');
+  if (!hint) return;
+  const isOvernight = s && e && s >= '18:00' && e <= '12:00';
+  hint.style.display = isOvernight ? 'block' : 'none';
+}
+function setEvPerson(person) {
+  _evPerson = person;
+  ['lucas','isabell','both'].forEach(p => {
+    const btn = document.getElementById(`evBtn-${p}`);
+    if (btn) btn.classList.toggle('active', p === person);
+  });
+}
+
+function openEventModal(dateStr, personOrId) {
+  editingEventId = null;
+  const isId = typeof personOrId === 'number' || (typeof personOrId === 'string' && /^\d+$/.test(String(personOrId)) && !['lucas','isabell','both'].includes(personOrId));
+
+  if (isId) {
+    // Edit existing event
+    const id = typeof personOrId === 'number' ? personOrId : parseInt(personOrId, 10);
+    const ev = calendarEvents.find(e => e.id === id);
+    if (!ev) return;
+    editingEventId = ev.id;
+    document.getElementById('evTitle').value = ev.title;
+    setEvPerson(ev.person);
+    document.getElementById('evType').value = ev.type || 'event';
+    document.getElementById('evDate').value = ev.event_date;
+    document.getElementById('evEndDate').value = ev.end_date || '';
+    document.getElementById('evRecur').value = ev.recur || 'none';
+    document.getElementById('evStart').value = ev.start_time || '';
+    document.getElementById('evEnd').value = ev.end_time || '';
+    document.getElementById('evNote').value = ev.note || '';
+    document.getElementById('eventModalTitle').textContent = '✏️ Termin bearbeiten';
+    document.getElementById('evDeleteBtn').style.display = 'block';
+  } else {
+    // New event
+    const defaultPerson = typeof personOrId === 'string' && ['lucas','isabell','both'].includes(personOrId)
+      ? personOrId : (activeUser || 'both');
+    document.getElementById('evTitle').value = '';
+    setEvPerson(defaultPerson);
+    document.getElementById('evType').value = 'event';
+    document.getElementById('evDate').value = dateStr || todayStr();
+    document.getElementById('evEndDate').value = '';
+    document.getElementById('evRecur').value = 'none';
+    document.getElementById('evStart').value = '';
+    document.getElementById('evEnd').value = '';
+    document.getElementById('evNote').value = '';
+    document.getElementById('eventModalTitle').textContent = '📅 Neuer Termin';
+    document.getElementById('evDeleteBtn').style.display = 'none';
+  }
+  openModal('eventModal');
+  setTimeout(() => document.getElementById('evTitle').focus(), 120);
+}
+
+async function saveCalEvent() {
+  const title = document.getElementById('evTitle').value.trim();
+  if (!title) { document.getElementById('evTitle').focus(); return; }
+  const payload = {
+    title,
+    person: _evPerson,
+    type: document.getElementById('evType').value,
+    recur: document.getElementById('evRecur').value || 'none',
+    event_date: document.getElementById('evDate').value,
+    end_date: document.getElementById('evEndDate').value || null,
+    start_time: document.getElementById('evStart').value || null,
+    end_time: document.getElementById('evEnd').value || null,
+    note: document.getElementById('evNote').value.trim() || null,
+  };
+  if (!payload.event_date) { alert('Bitte Datum auswählen'); return; }
+  // Auto-detect overnight: start ≥ 18:00 AND end ≤ 12:00 AND no end_date set
+  if (payload.start_time && payload.end_time && !payload.end_date) {
+    if (payload.start_time >= '18:00' && payload.end_time <= '12:00') {
+      payload.end_date = addDays(payload.event_date, 1);
+    }
+  }
+  const savedId = editingEventId;
+  closeModal('eventModal');
+  if (savedId) {
+    const {data} = await SB.from('calendar_events').update(payload).eq('id', savedId).select().single();
+    if (data) {
+      const idx = calendarEvents.findIndex(e => e.id === savedId);
+      if (idx >= 0) calendarEvents[idx] = data; else calendarEvents.push(data);
+    }
+  } else {
+    const {data} = await SB.from('calendar_events').insert(payload).select().single();
+    if (data) { calendarEvents.push(data); calendarEvents.sort((a,b) => a.event_date < b.event_date ? -1 : 1); }
+  }
+  editingEventId = null;
+  render();
+  // Refresh day sheet if open for this date
+  if (payload.event_date === selectedCalDay) {
+    const el = document.getElementById('daySheetBody');
+    if (el) el.innerHTML = renderDaySheetContent(selectedCalDay);
+  }
+}
+
+async function deleteCalEvent() {
+  if (!editingEventId) return;
+  const id = editingEventId;
+  const ev = calendarEvents.find(e => e.id === id);
+  const recurNote = ev && ev.recur && ev.recur !== 'none' ? '\n(Alle Wiederholungen werden gelöscht)' : '';
+  if (!confirm(`"${ev ? ev.title : 'Termin'}" wirklich löschen?${recurNote}`)) return;
+  closeModal('eventModal');
+  calendarEvents = calendarEvents.filter(e => e.id !== id);
+  await SB.from('calendar_events').delete().eq('id', id);
+  editingEventId = null;
+  render();
+  if (selectedCalDay) {
+    const el = document.getElementById('daySheetBody');
+    if (el) el.innerHTML = renderDaySheetContent(selectedCalDay);
+  }
+}
+
+/* ══════════════════════════════════════════
    ACTIONS — TASKS
 ══════════════════════════════════════════ */
 async function toggleTask(id, wkOverride) {
@@ -2099,6 +2811,14 @@ async function toggleTask(id, wkOverride) {
     const {data} = await SB.from('task_completions').insert({task_id:id, week_key:wk, done_by: activeUser||'lucas'}).select().single();
     if (!comps[wk]) comps[wk] = {};
     if (data) comps[wk][id] = data;
+    // Push wenn Setting aktiv
+    const doneEnabled = pushSettings.aufgabe_erledigt !== undefined ? pushSettings.aufgabe_erledigt : false;
+    if (doneEnabled) {
+      const t = tasks.find(t => t.id === id);
+      const doer = activeUser === 'lucas' ? 'Lucas' : 'Isabell';
+      const partner = activeUser === 'lucas' ? 'isabell' : 'lucas';
+      if (t) sendPushNotification(`✅ ${doer} hat erledigt`, t.name || 'Eine Aufgabe', partner);
+    }
   }
   saveFairness(wk);
 }
@@ -2219,7 +2939,16 @@ async function qaAdd() {
   const name = inp.value.trim();
   if (!name) return;
   const {data} = await SB.from('groceries').insert({name, cat:'Sonstiges', done:false, added_by: activeUser || 'lucas'}).select().single();
-  if (data) groceries.push(data);
+  if (data) {
+    groceries.push(data);
+    // Push an Partner wenn Setting aktiv
+    const grocEnabled = pushSettings.neue_einkauf !== undefined ? pushSettings.neue_einkauf : false;
+    if (grocEnabled) {
+      const adder = activeUser === 'lucas' ? 'Lucas' : 'Isabell';
+      const partner = activeUser === 'lucas' ? 'isabell' : 'lucas';
+      sendPushNotification(`🛒 ${adder} hat hinzugefügt`, name, partner);
+    }
+  }
   inp.value = '';
   if (activeTab === 3) render();
   inp.focus();
@@ -2625,12 +3354,94 @@ async function mgmtDelete(taskId, taskName) {
 // Close ctx on escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtx(); });
 
+/* ══════════════════════════════════════════
+   PUSH SETTINGS TOGGLE
+══════════════════════════════════════════ */
+async function togglePushSetting(key) {
+  const defaults = { neue_notiz:true, aufgabe_erledigt:false, neue_einkauf:false, kalender_reminder:true, taegl_aufgaben:true, wochenuebersicht:true };
+  const cur = pushSettings[key] !== undefined ? pushSettings[key] : defaults[key];
+  pushSettings[key] = !cur;
+  if (activeTab === 0) render();
+  try {
+    await SB.from('push_settings').upsert(
+      { user_name: activeUser || 'lucas', [key]: pushSettings[key], updated_at: new Date().toISOString() },
+      { onConflict: 'user_name' }
+    );
+  } catch(e) { console.warn('push_settings save failed:', e); }
+}
+
+async function loadPushSettings() {
+  if (!activeUser) return;
+  try {
+    const {data} = await SB.from('push_settings').select('*').eq('user_name', activeUser).maybeSingle();
+    pushSettings = data || {};
+  } catch(_) { pushSettings = {}; }
+}
+
+/* ══════════════════════════════════════════
+   ACTIONS — NOTES
+══════════════════════════════════════════ */
+function openNoteModal() {
+  noteToUser = 'both';
+  document.getElementById('noteContent').value = '';
+  ['both','lucas','isabell'].forEach(v => {
+    const btn = document.getElementById(`noteTo-${v}`);
+    const active = v === 'both';
+    btn.style.background = active ? 'var(--sage)' : 'transparent';
+    btn.style.borderColor = active ? 'var(--sage)' : 'var(--c3)';
+    btn.style.color = active ? '#fff' : 'var(--c5)';
+  });
+  openModal('noteModal');
+  setTimeout(() => document.getElementById('noteContent').focus(), 300);
+}
+
+function setNoteTo(val) {
+  noteToUser = val;
+  const colors = { both: {bg:'var(--sage)',bd:'var(--sage)'}, lucas: {bg:'var(--sage)',bd:'var(--sage)'}, isabell: {bg:'var(--lav)',bd:'var(--lav)'} };
+  ['both','lucas','isabell'].forEach(v => {
+    const btn = document.getElementById(`noteTo-${v}`);
+    const active = v === val;
+    btn.style.background = active ? colors[val].bg : 'transparent';
+    btn.style.borderColor = active ? colors[val].bd : 'var(--c3)';
+    btn.style.color = active ? '#fff' : 'var(--c5)';
+  });
+}
+
+async function saveNote() {
+  const content = document.getElementById('noteContent').value.trim();
+  if (!content) return;
+  const author = activeUser || 'lucas';
+  const {data, error} = await SB.from('notes').insert({author, to_user: noteToUser, content}).select().single();
+  if (!error && data) {
+    notes.unshift(data);
+    // Push an den Empfänger — nur wenn Setting aktiv
+    const noteEnabled = pushSettings.neue_notiz !== undefined ? pushSettings.neue_notiz : true;
+    if (noteEnabled) {
+      const pushTarget = noteToUser === 'both' ? 'both'
+        : noteToUser !== author ? noteToUser : null;
+      if (pushTarget) {
+        const authorName = author === 'lucas' ? 'Lucas' : 'Isabell';
+        sendPushNotification(`📝 Neue Notiz von ${authorName}`, content, pushTarget);
+      }
+    }
+  }
+  closeModal('noteModal');
+  if (activeTab === 0) render();
+}
+
+async function deleteNote(id) {
+  notes = notes.filter(n => n.id !== id);
+  await SB.from('notes').delete().eq('id', id);
+  if (activeTab === 0) render();
+}
+
 function setUser(name) {
   activeUser = name;
   localStorage.setItem('zuhause_user', name);
   document.getElementById('userModal').classList.remove('open');
-  // Update header to show who is logged in
   updateUserBadge();
+  loadPushSettings().then(() => { if (activeTab === 0) render(); });
+  subscribeToPush();
 }
 
 function updateUserBadge() {
@@ -2662,11 +3473,60 @@ loadAll().then(() => {
   }
 });
 
+/* ══════════════════════════════════════════
+   PUSH NOTIFICATIONS
+══════════════════════════════════════════ */
+const VAPID_PUBLIC_KEY = 'BAFmowtCgTbB7yMT-vT32kELJ7OkroCxcbtia2DJrMN-DlIdDwtg2atQp2tSWXp4DwpkFopi00iqGzRoIaJUmTo';
+const PUSH_FN_URL = 'https://jabjnjhvkmzjxbbuqccr.supabase.co/functions/v1/send-push';
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !activeUser) return;
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    let sub = await sw.pushManager.getSubscription();
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+      sub = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const subJson = sub.toJSON();
+    await SB.from('push_subscriptions').upsert({
+      user_name: activeUser,
+      endpoint: subJson.endpoint,
+      subscription: subJson,
+    }, { onConflict: 'endpoint' });
+    console.log('Push subscribed for', activeUser);
+  } catch(e) {
+    console.warn('Push subscription failed:', e);
+  }
+}
+
+async function sendPushNotification(title, body, toUser = 'both') {
+  try {
+    fetch(PUSH_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body, to_user: toUser }),
+    });
+  } catch(e) {
+    console.warn('Push send failed:', e);
+  }
+}
+
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/Isa-Lucas/sw.js')
-      .then(reg => console.log('SW registered:', reg.scope))
+      .then(() => subscribeToPush())
       .catch(err => console.log('SW failed:', err));
   });
 }
