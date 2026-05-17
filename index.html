@@ -3325,7 +3325,17 @@ async function saveNote() {
   if (!content) return;
   const author = activeUser || 'lucas';
   const {data, error} = await SB.from('notes').insert({author, to_user: noteToUser, content}).select().single();
-  if (!error && data) notes.unshift(data);
+  if (!error && data) {
+    notes.unshift(data);
+    // Push an den Empfänger (nicht an sich selbst)
+    const pushTarget = noteToUser === 'both' ? 'both'
+      : noteToUser !== author ? noteToUser : null;
+    if (pushTarget) {
+      const authorName = author === 'lucas' ? 'Lucas' : 'Isabell';
+      const toLabel = pushTarget === 'both' ? '' : ` (an ${pushTarget === 'lucas' ? 'Lucas' : 'Isabell'})`;
+      sendPushNotification(`📝 Neue Notiz von ${authorName}${toLabel}`, content, pushTarget);
+    }
+  }
   closeModal('noteModal');
   if (activeTab === 0) render();
 }
@@ -3340,8 +3350,8 @@ function setUser(name) {
   activeUser = name;
   localStorage.setItem('zuhause_user', name);
   document.getElementById('userModal').classList.remove('open');
-  // Update header to show who is logged in
   updateUserBadge();
+  subscribeToPush(); // Push-Berechtigung anfragen nach User-Wahl
 }
 
 function updateUserBadge() {
@@ -3373,11 +3383,60 @@ loadAll().then(() => {
   }
 });
 
+/* ══════════════════════════════════════════
+   PUSH NOTIFICATIONS
+══════════════════════════════════════════ */
+const VAPID_PUBLIC_KEY = 'BAFmowtCgTbB7yMT-vT32kELJ7OkroCxcbtia2DJrMN-DlIdDwtg2atQp2tSWXp4DwpkFopi00iqGzRoIaJUmTo';
+const PUSH_FN_URL = 'https://jabjnjhvkmzjxbbuqccr.supabase.co/functions/v1/send-push';
+
+function urlBase64ToUint8Array(b64) {
+  const pad = '='.repeat((4 - b64.length % 4) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !activeUser) return;
+  try {
+    const sw = await navigator.serviceWorker.ready;
+    let sub = await sw.pushManager.getSubscription();
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+      sub = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+    const subJson = sub.toJSON();
+    await SB.from('push_subscriptions').upsert({
+      user_name: activeUser,
+      endpoint: subJson.endpoint,
+      subscription: subJson,
+    }, { onConflict: 'endpoint' });
+    console.log('Push subscribed for', activeUser);
+  } catch(e) {
+    console.warn('Push subscription failed:', e);
+  }
+}
+
+async function sendPushNotification(title, body, toUser = 'both') {
+  try {
+    fetch(PUSH_FN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body, to_user: toUser }),
+    });
+  } catch(e) {
+    console.warn('Push send failed:', e);
+  }
+}
+
 // Register Service Worker for PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/Isa-Lucas/sw.js')
-      .then(reg => console.log('SW registered:', reg.scope))
+      .then(() => subscribeToPush())
       .catch(err => console.log('SW failed:', err));
   });
 }

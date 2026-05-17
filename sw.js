@@ -1,5 +1,5 @@
 // Zuhause Service Worker — bump version here on every deploy to force cache refresh
-const CACHE_VERSION = 'zuhause-v6';
+const CACHE_VERSION = 'zuhause-v7';
 const PRECACHE = [
   '/Isa-Lucas/',
   '/Isa-Lucas/index.html',
@@ -23,6 +23,32 @@ self.addEventListener('activate', e => {
         keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
+  );
+});
+
+// ── Push Notifications ──
+self.addEventListener('push', e => {
+  let data = { title: 'Zuhause 🏡', body: 'Neue Nachricht' };
+  try { data = e.data?.json() || data; } catch(_) {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/Isa-Lucas/icon-192.png',
+      badge: '/Isa-Lucas/icon-192.png',
+      vibrate: [150, 50, 150],
+      data: { url: '/Isa-Lucas/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      const existing = cs.find(c => c.url.includes('/Isa-Lucas/'));
+      if (existing) return existing.focus();
+      return clients.openWindow('/Isa-Lucas/');
+    })
   );
 });
 
