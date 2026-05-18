@@ -3594,14 +3594,29 @@ async function subscribeToPush(force = false) {
 }
 
 async function manualSubscribe() {
+  if (!activeUser) {
+    alert('⚠️ Bitte zuerst einloggen (Lucas oder Isabell wählen)');
+    return;
+  }
   const btn = document.getElementById('pushSubscribeBtn');
   if (btn) { btn.disabled = true; btn.textContent = '…'; }
   const result = await subscribeToPush(true);
   await refreshPushStatusUI();
   if (btn) { btn.disabled = false; }
-  if (result === 'ok') {
-    sendPushNotification('🔔 Push aktiv!', `Push-Notifications aktiviert für ${activeUser === 'lucas' ? 'Lucas' : 'Isabell'}`, activeUser);
-  }
+
+  const msgs = {
+    'ok':          null, // kein Alert, Status sichtbar
+    'unsupported': '❌ Dein Browser/Gerät unterstützt keine Push-Notifications.\niOS: App muss installiert sein (Add to Home Screen) + iOS 16.4+',
+    'denied':      '❌ Push-Berechtigung blockiert.\nBitte in den Browser/Geräte-Einstellungen erlauben.',
+    'no-user':     '⚠️ Kein Benutzer ausgewählt. Bitte zuerst Lucas oder Isabell wählen.',
+    'db-error':    '⚠️ Gerät registriert, aber DB-Speicherung fehlgeschlagen.\nDetails: ' + JSON.stringify(window._push.lastError),
+    'exception':   '❌ Fehler: ' + (window._push.lastError || 'unbekannt'),
+  };
+  const msg = msgs[result];
+  if (msg) { alert(msg); return; }
+
+  // Erfolgreich → Bestätigungs-Push senden
+  sendPushNotification('🔔 Push aktiv!', `Push-Notifications aktiviert für ${activeUser === 'lucas' ? 'Lucas' : 'Isabell'}`, activeUser);
 }
 
 async function refreshPushStatusUI() {
