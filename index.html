@@ -1787,7 +1787,11 @@ function render() {
   const el = document.getElementById('content');
   const dates = weekDates(weekOffset);
   switch (activeTab) {
-    case 0: el.innerHTML = renderHeute(dates); break;
+    case 0:
+      el.innerHTML = renderHeute(dates);
+      // Push-Status asynchron laden und ins Panel einfügen
+      refreshPushStatusUI();
+      break;
     case 1: el.innerHTML = renderTasks('putz', dates); break;
     case 2: el.innerHTML = renderTasks('garten', dates); break;
     case 3: el.innerHTML = renderEinkauf(); break;
@@ -1854,7 +1858,11 @@ function renderPushSettings() {
     { key:'wochenuebersicht',  icon:'📊', label:'Wochenübersicht',               sub:'Montag, 9:00 Uhr ✦',             def:true  },
   ];
   let html = `<div style="padding:0 16px 20px">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--c4);padding:8px 0 8px">📬 Push-Einstellungen</div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--c4);padding:8px 0 6px">📬 Push-Status</div>
+    <div id="pushStatusBlock" style="margin-bottom:12px">
+      <div style="background:var(--c1);border:1px solid var(--c2);border-radius:8px;padding:10px 12px;color:var(--c4);font-size:13px">Lade Status…</div>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--c4);padding:4px 0 6px">Benachrichtigungen</div>
     <div style="background:var(--c1);border:1px solid var(--c2);border-radius:var(--rl);overflow:hidden">`;
   PUSH_ITEMS.forEach((s, i) => {
     const val = pushSettings[s.key] !== undefined ? pushSettings[s.key] : s.def;
@@ -3362,12 +3370,12 @@ async function togglePushSetting(key) {
   const cur = pushSettings[key] !== undefined ? pushSettings[key] : defaults[key];
   pushSettings[key] = !cur;
   if (activeTab === 0) render();
-  try {
-    await SB.from('push_settings').upsert(
-      { user_name: activeUser || 'lucas', [key]: pushSettings[key], updated_at: new Date().toISOString() },
-      { onConflict: 'user_name' }
-    );
-  } catch(e) { console.warn('push_settings save failed:', e); }
+  const { error } = await SB.from('push_settings').upsert(
+    { user_name: activeUser || 'lucas', [key]: pushSettings[key], updated_at: new Date().toISOString() },
+    { onConflict: 'user_name' }
+  );
+  if (error) console.error('[Push] push_settings upsert error:', JSON.stringify(error));
+  else console.log('[Push] push_settings saved:', key, '=', pushSettings[key]);
 }
 
 async function loadPushSettings() {
@@ -3485,40 +3493,158 @@ function urlBase64ToUint8Array(b64) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
-async function subscribeToPush() {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !activeUser) return;
+// Diagnoseobjekt — sichtbar in der Konsole mit window._push
+window._push = { lastError: null, lastSubscribeAt: null, subEndpoint: null, dbSaved: false };
+
+async function getPushStatus() {
+  const s = {
+    supported: ('serviceWorker' in navigator) && ('PushManager' in window),
+    permission: typeof Notification !== 'undefined' ? Notification.permission : 'unsupported',
+    swActive: false,
+    browserSub: null,
+    dbSub: false,
+  };
+  if (!s.supported) return s;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    s.swActive = !!(reg && reg.active);
+    if (reg) s.browserSub = await reg.pushManager.getSubscription();
+  } catch(_) {}
+  if (activeUser && s.browserSub) {
+    try {
+      const { data } = await SB.from('push_subscriptions')
+        .select('id').eq('user_name', activeUser).limit(1);
+      s.dbSub = !!(data && data.length);
+    } catch(_) {}
+  }
+  return s;
+}
+
+async function subscribeToPush(force = false) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.warn('[Push] PushManager not supported');
+    return 'unsupported';
+  }
+  if (!activeUser) {
+    console.warn('[Push] No activeUser, skipping subscribe');
+    return 'no-user';
+  }
   try {
     const sw = await navigator.serviceWorker.ready;
     let sub = await sw.pushManager.getSubscription();
+
+    if (sub && force) {
+      await sub.unsubscribe();
+      sub = null;
+    }
+
     if (!sub) {
+      if (Notification.permission === 'denied') {
+        console.error('[Push] Permission denied — user must enable in browser settings');
+        window._push.lastError = 'permission-denied';
+        return 'denied';
+      }
       const perm = await Notification.requestPermission();
-      if (perm !== 'granted') return;
+      if (perm !== 'granted') {
+        console.warn('[Push] Permission not granted:', perm);
+        window._push.lastError = 'permission-' + perm;
+        return perm;
+      }
       sub = await sw.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
       });
+      console.log('[Push] New subscription created:', sub.endpoint.slice(-20));
+    } else {
+      console.log('[Push] Existing subscription found:', sub.endpoint.slice(-20));
     }
+
     const subJson = sub.toJSON();
-    await SB.from('push_subscriptions').upsert({
+    window._push.subEndpoint = subJson.endpoint;
+    window._push.lastSubscribeAt = new Date().toISOString();
+
+    const { error } = await SB.from('push_subscriptions').upsert({
       user_name: activeUser,
       endpoint: subJson.endpoint,
       subscription: subJson,
     }, { onConflict: 'endpoint' });
-    console.log('Push subscribed for', activeUser);
+
+    if (error) {
+      console.error('[Push] Supabase upsert FAILED:', JSON.stringify(error));
+      window._push.lastError = error;
+      window._push.dbSaved = false;
+    } else {
+      console.log('[Push] ✓ Subscription saved to DB for', activeUser);
+      window._push.dbSaved = true;
+      window._push.lastError = null;
+    }
+    return error ? 'db-error' : 'ok';
   } catch(e) {
-    console.warn('Push subscription failed:', e);
+    console.error('[Push] subscribeToPush exception:', e.name, e.message);
+    window._push.lastError = e.message;
+    return 'exception';
   }
+}
+
+async function manualSubscribe() {
+  const btn = document.getElementById('pushSubscribeBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  const result = await subscribeToPush(true);
+  await refreshPushStatusUI();
+  if (btn) { btn.disabled = false; }
+  if (result === 'ok') {
+    sendPushNotification('🔔 Push aktiv!', `Push-Notifications aktiviert für ${activeUser === 'lucas' ? 'Lucas' : 'Isabell'}`, activeUser);
+  }
+}
+
+async function refreshPushStatusUI() {
+  const el = document.getElementById('pushStatusBlock');
+  if (!el) return;
+  const s = await getPushStatus();
+  const permColor = s.permission === 'granted' ? 'var(--sage-d)' : s.permission === 'denied' ? '#c0392b' : 'var(--c4)';
+  const permIcon  = s.permission === 'granted' ? '✓' : s.permission === 'denied' ? '✗' : '?';
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+      <div style="background:var(--c1);border:1px solid var(--c2);border-radius:8px;padding:8px 10px">
+        <div style="font-size:10px;color:var(--c4);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Browser</div>
+        <div style="font-size:13px;font-weight:600;color:${permColor};margin-top:2px">${permIcon} ${s.permission}</div>
+      </div>
+      <div style="background:var(--c1);border:1px solid var(--c2);border-radius:8px;padding:8px 10px">
+        <div style="font-size:10px;color:var(--c4);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Datenbank</div>
+        <div style="font-size:13px;font-weight:600;color:${s.dbSub ? 'var(--sage-d)' : '#c0392b'};margin-top:2px">${s.dbSub ? '✓ gespeichert' : '✗ fehlt'}</div>
+      </div>
+    </div>
+    <button id="pushSubscribeBtn" onclick="manualSubscribe()" style="width:100%;padding:9px;border-radius:8px;border:none;background:var(--sage);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">
+      ${s.dbSub ? '🔄 Neu anmelden' : '🔔 Push aktivieren'}
+    </button>
+    <button onclick="testPushToSelf()" style="width:100%;margin-top:6px;padding:9px;border-radius:8px;border:1px solid var(--c2);background:var(--c1);color:var(--c5);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">
+      🧪 Test-Push an mich
+    </button>`;
+}
+
+async function testPushToSelf() {
+  if (!activeUser) return;
+  const name = activeUser === 'lucas' ? 'Lucas' : 'Isabell';
+  const res = await fetch(PUSH_FN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: '🧪 Test erfolgreich!', body: `Push funktioniert für ${name}`, to_user: activeUser }),
+  });
+  const json = await res.json().catch(() => ({}));
+  alert(`Test-Push: ${res.ok ? `✓ gesendet (${json.sent ?? '?'} Gerät(e))` : `✗ Fehler ${res.status}`}`);
 }
 
 async function sendPushNotification(title, body, toUser = 'both') {
   try {
-    fetch(PUSH_FN_URL, {
+    const res = await fetch(PUSH_FN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, body, to_user: toUser }),
     });
+    const json = await res.json().catch(() => ({}));
+    console.log(`[Push] sent=${json.sent ?? '?'} to=${toUser}`);
   } catch(e) {
-    console.warn('Push send failed:', e);
+    console.warn('[Push] sendPushNotification failed:', e.message);
   }
 }
 
@@ -3526,8 +3652,11 @@ async function sendPushNotification(title, body, toUser = 'both') {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/Isa-Lucas/sw.js')
-      .then(() => subscribeToPush())
-      .catch(err => console.log('SW failed:', err));
+      .then(reg => {
+        console.log('[SW] Registered, scope:', reg.scope);
+        subscribeToPush();
+      })
+      .catch(err => console.error('[SW] Registration failed:', err));
   });
 }
 </script>
