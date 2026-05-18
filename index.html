@@ -3595,51 +3595,91 @@ async function subscribeToPush(force = false) {
 
 async function manualSubscribe() {
   if (!activeUser) {
-    alert('⚠️ Bitte zuerst einloggen (Lucas oder Isabell wählen)');
+    alert('Bitte zuerst Lucas oder Isabell auswählen (oben rechts).');
     return;
   }
   const btn = document.getElementById('pushSubscribeBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Wird aktiviert…'; }
+
   const result = await subscribeToPush(true);
   await refreshPushStatusUI();
-  if (btn) { btn.disabled = false; }
+  if (btn) btn.disabled = false;
 
-  const msgs = {
-    'ok':          null, // kein Alert, Status sichtbar
-    'unsupported': '❌ Dein Browser/Gerät unterstützt keine Push-Notifications.\niOS: App muss installiert sein (Add to Home Screen) + iOS 16.4+',
-    'denied':      '❌ Push-Berechtigung blockiert.\nBitte in den Browser/Geräte-Einstellungen erlauben.',
-    'no-user':     '⚠️ Kein Benutzer ausgewählt. Bitte zuerst Lucas oder Isabell wählen.',
-    'db-error':    '⚠️ Gerät registriert, aber DB-Speicherung fehlgeschlagen.\nDetails: ' + JSON.stringify(window._push.lastError),
-    'exception':   '❌ Fehler: ' + (window._push.lastError || 'unbekannt'),
+  if (result === 'ok') {
+    sendPushNotification('🔔 Push aktiv!',
+      `Push-Notifications aktiviert für ${activeUser === 'lucas' ? 'Lucas' : 'Isabell'}`,
+      activeUser);
+    return;
+  }
+
+  // Klare Fehlermeldungen — lesbar ohne DevTools, funktioniert auf iOS/Android
+  const errorTexts = {
+    'unsupported': 'Push-Notifications werden auf diesem Gerät nicht unterstützt.\n\niOS: App muss über Safari installiert sein (Teilen → Zum Home-Bildschirm) und iOS 16.4 oder neuer benötigt.\n\nAndroid: Chrome-Browser verwenden.',
+    'denied':      'Push-Berechtigung ist blockiert.\n\nBitte in den Geräte-Einstellungen unter Benachrichtigungen → Safari/Chrome → diese App erlauben.',
+    'no-user':     'Kein Benutzer ausgewählt.\nBitte zuerst Lucas oder Isabell wählen.',
+    'db-error':    'Gerät wurde registriert, aber Speicherung in der Datenbank fehlgeschlagen.\n\nFehler: ' + JSON.stringify(window._push.lastError) + '\n\nInternet-Verbindung prüfen und nochmals versuchen.',
+    'exception':   'Unerwarteter Fehler beim Aktivieren:\n' + (window._push.lastError || 'unbekannt') + '\n\nBitte nochmals versuchen.',
   };
-  const msg = msgs[result];
-  if (msg) { alert(msg); return; }
-
-  // Erfolgreich → Bestätigungs-Push senden
-  sendPushNotification('🔔 Push aktiv!', `Push-Notifications aktiviert für ${activeUser === 'lucas' ? 'Lucas' : 'Isabell'}`, activeUser);
+  alert(errorTexts[result] || 'Fehler: ' + result);
 }
 
 async function refreshPushStatusUI() {
   const el = document.getElementById('pushStatusBlock');
   if (!el) return;
   const s = await getPushStatus();
+
+  // Automatisch abonnieren wenn: eingeloggt + Permission granted + kein Abo im Browser
+  // (passiert z.B. wenn Permission in Einstellungen manuell erlaubt wurde)
+  if (activeUser && s.permission === 'granted' && !s.browserSub && !s.dbSub) {
+    subscribeToPush(false); // stil im Hintergrund, kein force
+  }
+
+  const ok    = s.dbSub;
+  const warn  = !s.supported || s.permission === 'denied';
+
+  const tile = (label, icon, text, color) =>
+    `<div style="background:var(--c1);border:1px solid var(--c2);border-radius:8px;padding:8px 10px">
+      <div style="font-size:10px;color:var(--c4);font-weight:600;text-transform:uppercase;letter-spacing:.5px">${label}</div>
+      <div style="font-size:12px;font-weight:600;color:${color};margin-top:2px">${icon} ${text}</div>
+    </div>`;
+
   const permColor = s.permission === 'granted' ? 'var(--sage-d)' : s.permission === 'denied' ? '#c0392b' : 'var(--c4)';
-  const permIcon  = s.permission === 'granted' ? '✓' : s.permission === 'denied' ? '✗' : '?';
+  const subColor  = s.browserSub ? 'var(--sage-d)' : '#c0392b';
+  const dbColor   = s.dbSub      ? 'var(--sage-d)' : '#c0392b';
+
+  const permTile = tile('Berechtigung',
+    s.permission === 'granted' ? '✓' : s.permission === 'denied' ? '✗' : '?',
+    s.permission === 'granted' ? 'erlaubt' : s.permission === 'denied' ? 'blockiert' : 'ausstehend',
+    permColor);
+
+  const subTile = tile('Dieses Gerät',
+    s.browserSub ? '✓' : '✗',
+    s.browserSub ? 'registriert' : 'fehlt',
+    subColor);
+
+  const dbTile = tile('Datenbank',
+    s.dbSub ? '✓' : '✗',
+    s.dbSub ? 'gespeichert' : 'fehlt',
+    dbColor);
+
+  const btnLabel = ok ? '🔄 Neu anmelden' : '🔔 Push aktivieren';
+  const hint = !s.supported
+    ? '<div style="font-size:11px;color:#c0392b;margin-top:6px;padding:0 2px">⚠ Push nicht unterstützt. iOS: App installieren (Add to Home Screen) · iOS 16.4+</div>'
+    : s.permission === 'denied'
+    ? '<div style="font-size:11px;color:#c0392b;margin-top:6px;padding:0 2px">⚠ Blockiert — Benachrichtigungen in den Geräte-Einstellungen erlauben</div>'
+    : '';
+
   el.innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
-      <div style="background:var(--c1);border:1px solid var(--c2);border-radius:8px;padding:8px 10px">
-        <div style="font-size:10px;color:var(--c4);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Browser</div>
-        <div style="font-size:13px;font-weight:600;color:${permColor};margin-top:2px">${permIcon} ${s.permission}</div>
-      </div>
-      <div style="background:var(--c1);border:1px solid var(--c2);border-radius:8px;padding:8px 10px">
-        <div style="font-size:10px;color:var(--c4);font-weight:600;text-transform:uppercase;letter-spacing:.5px">Datenbank</div>
-        <div style="font-size:13px;font-weight:600;color:${s.dbSub ? 'var(--sage-d)' : '#c0392b'};margin-top:2px">${s.dbSub ? '✓ gespeichert' : '✗ fehlt'}</div>
-      </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:10px">
+      ${permTile}${subTile}${dbTile}
     </div>
-    <button id="pushSubscribeBtn" onclick="manualSubscribe()" style="width:100%;padding:9px;border-radius:8px;border:none;background:var(--sage);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">
-      ${s.dbSub ? '🔄 Neu anmelden' : '🔔 Push aktivieren'}
+    ${hint}
+    <button id="pushSubscribeBtn" onclick="manualSubscribe()"
+      style="width:100%;padding:9px;border-radius:8px;border:none;background:${warn ? '#999' : 'var(--sage)'};color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:${hint?'6px':'0'}">
+      ${btnLabel}
     </button>
-    <button onclick="testPushToSelf()" style="width:100%;margin-top:6px;padding:9px;border-radius:8px;border:1px solid var(--c2);background:var(--c1);color:var(--c5);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">
+    <button onclick="testPushToSelf()"
+      style="width:100%;margin-top:6px;padding:9px;border-radius:8px;border:1px solid var(--c2);background:var(--c1);color:var(--c5);font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif">
       🧪 Test-Push an mich
     </button>`;
 }
