@@ -3574,7 +3574,7 @@ async function subscribeToPush(force = false) {
       user_name: activeUser,
       endpoint: subJson.endpoint,
       subscription: subJson,
-    }, { onConflict: 'endpoint' });
+    }, { onConflict: 'user_name,endpoint' });
 
     if (error) {
       console.error('[Push] Supabase upsert FAILED:', JSON.stringify(error));
