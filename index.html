@@ -1200,7 +1200,7 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
   <div class="modal-title" id="eventModalTitle">Neuer Termin</div>
 
   <!-- Person segment control (Cupla-style) -->
-  <div style="margin-bottom:14px">
+  <div style="margin-bottom:14px" id="evPersonRow">
     <span class="field-label" style="margin-top:0">Für wen</span>
     <div class="seg-ctrl" style="margin-top:5px" id="evPersonCtrl">
       <button class="seg-btn seg-btn-l active" onclick="setEvPerson('lucas')" id="evBtn-lucas">👤 Lucas</button>
@@ -1209,20 +1209,23 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     </div>
   </div>
 
-  <span class="field-label" style="margin-top:0">Titel</span>
-  <input class="field-input" id="evTitle" placeholder="Termin beschreiben...">
+  <div id="evTitleRow">
+    <span class="field-label" style="margin-top:0">Titel</span>
+    <input class="field-input" id="evTitle" placeholder="Termin beschreiben...">
+  </div>
 
   <div class="field-grid" style="margin-top:0">
     <div>
       <span class="field-label">Art</span>
-      <select class="field-select" id="evType">
+      <select class="field-select" id="evType" onchange="onEvTypeChange()">
         <option value="event">📅 Termin</option>
         <option value="absence">✈️ Abwesenheit</option>
         <option value="birthday">🎂 Geburtstag</option>
         <option value="note">📝 Notiz</option>
+        <option value="dienst">📋 Dienst</option>
       </select>
     </div>
-    <div>
+    <div id="evRecurWrap">
       <span class="field-label">Wiederholung</span>
       <select class="field-select" id="evRecur">
         <option value="none">Einmalig</option>
@@ -1232,18 +1235,18 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
       </select>
     </div>
     <div>
-      <span class="field-label">Von Datum</span>
+      <span class="field-label">Datum</span>
       <input class="field-input" id="evDate" type="date">
     </div>
-    <div>
+    <div id="evEndDateWrap">
       <span class="field-label">Bis Datum <span style="font-weight:400;color:var(--c4)">(optional)</span></span>
       <input class="field-input" id="evEndDate" type="date">
     </div>
-    <div>
+    <div id="evStartWrap">
       <span class="field-label">Uhrzeit von</span>
       <input class="field-input" id="evStart" type="time" oninput="checkOvernight()">
     </div>
-    <div>
+    <div id="evEndWrap">
       <span class="field-label">Uhrzeit bis</span>
       <input class="field-input" id="evEnd" type="time" oninput="checkOvernight()">
     </div>
@@ -1252,7 +1255,16 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
         🌙 Geht über Mitternacht — Bis-Datum wird automatisch auf den Folgetag gesetzt
       </div>
     </div>
-    <div class="span2">
+    <div class="span2" id="evDienstBlock" style="display:none">
+      <span class="field-label">Dienstart</span>
+      <select class="field-select" id="evShiftType">
+        <option value="L">L – Langdienst (6:30–19:30)</option>
+        <option value="S">S – Spätdienst (13:30–19:30)</option>
+        <option value="N">N – Nachtdienst (19:00–7:00)</option>
+        <option value="U">🌴 Urlaub / Frei</option>
+      </select>
+    </div>
+    <div class="span2" id="evNoteWrap">
       <span class="field-label">Notiz (optional)</span>
       <input class="field-input" id="evNote" placeholder="z.B. Ort, weitere Infos...">
     </div>
@@ -2693,6 +2705,23 @@ function setEvPerson(person) {
   });
 }
 
+function onEvTypeChange() {
+  const type = document.getElementById('evType').value;
+  const isDienst = type === 'dienst';
+  // Fields that are hidden in Dienst mode
+  ['evRecurWrap','evEndDateWrap','evStartWrap','evEndWrap','evNoteWrap','overnightHint'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isDienst ? 'none' : '';
+  });
+  // Dienst-specific block
+  document.getElementById('evDienstBlock').style.display = isDienst ? '' : 'none';
+  // Title and person: hide for Dienst (shift only needs date + type)
+  const titleRow = document.getElementById('evTitleRow');
+  if (titleRow) titleRow.style.display = isDienst ? 'none' : '';
+  const personRow = document.getElementById('evPersonRow');
+  if (personRow) personRow.style.display = isDienst ? 'none' : '';
+}
+
 function openEventModal(dateStr, personOrId) {
   editingEventId = null;
   const isId = typeof personOrId === 'number' || (typeof personOrId === 'string' && /^\d+$/.test(String(personOrId)) && !['lucas','isabell','both'].includes(personOrId));
@@ -2730,19 +2759,41 @@ function openEventModal(dateStr, personOrId) {
     document.getElementById('eventModalTitle').textContent = '📅 Neuer Termin';
     document.getElementById('evDeleteBtn').style.display = 'none';
   }
+  onEvTypeChange();
   openModal('eventModal');
-  setTimeout(() => document.getElementById('evTitle').focus(), 120);
+  setTimeout(() => {
+    const type = document.getElementById('evType').value;
+    if (type !== 'dienst') document.getElementById('evTitle').focus();
+  }, 120);
 }
 
 async function saveCalEvent() {
+  const type = document.getElementById('evType').value;
+  const date  = document.getElementById('evDate').value;
+
+  // ── Dienst-Modus: direkt als Schicht speichern ──
+  if (type === 'dienst') {
+    if (!date) { alert('Bitte Datum auswählen'); return; }
+    const shiftType = document.getElementById('evShiftType').value;
+    closeModal('eventModal');
+    await SB.from('shifts').upsert({ shift_date: date, shift_type: shiftType }, { onConflict: 'shift_date' });
+    shifts[date] = shiftType;
+    render();
+    if (selectedCalDay) {
+      const el = document.getElementById('daySheetBody');
+      if (el) el.innerHTML = renderDaySheetContent(selectedCalDay);
+    }
+    return;
+  }
+
   const title = document.getElementById('evTitle').value.trim();
   if (!title) { document.getElementById('evTitle').focus(); return; }
   const payload = {
     title,
     person: _evPerson,
-    type: document.getElementById('evType').value,
+    type,
     recur: document.getElementById('evRecur').value || 'none',
-    event_date: document.getElementById('evDate').value,
+    event_date: date,
     end_date: document.getElementById('evEndDate').value || null,
     start_time: document.getElementById('evStart').value || null,
     end_time: document.getElementById('evEnd').value || null,
