@@ -295,6 +295,7 @@ body{
 
 /* Shift pill */
 .sh{font-size:9px;font-weight:700;padding:2px 5px;border-radius:5px;letter-spacing:.2px}
+.shF1{background:#fed7aa;color:#c2410c}
 .shL{background:#fef3c7;color:#92400e}
 .shS{background:#d1fae5;color:#065f46}
 .shN{background:#e5e7eb;color:#374151}
@@ -1085,6 +1086,7 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
   <input class="field-input" id="shDate" type="date">
   <span class="field-label" style="margin-top:12px">Dienst</span>
   <select class="field-select" id="shType">
+    <option value="F1">F1 – Frühdienst (6:30–15:00)</option>
     <option value="L">L – Langdienst (6:30–19:30)</option>
     <option value="S">S – Spätdienst (13:30–19:30)</option>
     <option value="N">N – Nachtdienst (19:00–7:00)</option>
@@ -1258,6 +1260,7 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
     <div class="span2" id="evDienstBlock" style="display:none">
       <span class="field-label">Dienstart</span>
       <select class="field-select" id="evShiftType">
+        <option value="F1">F1 – Frühdienst (6:30–15:00)</option>
         <option value="L">L – Langdienst (6:30–19:30)</option>
         <option value="S">S – Spätdienst (13:30–19:30)</option>
         <option value="N">N – Nachtdienst (19:00–7:00)</option>
@@ -2068,7 +2071,7 @@ function renderHeute(dates) {
   // Isabell's own shift card
   if (isIsabell && selShift) {
     const nightStr = selShift === 'N' ? '19:00 – 0:00 (bis 7:00 Folgetag →)' : '';
-    const sLabel = selShift === 'N' ? `Nachtdienst · ${nightStr}` : ({L:'Langdienst · 6:30–19:30',S:'Spätdienst · 13:30–19:30',U:'Urlaub / Frei'}[selShift] || selShift);
+    const sLabel = selShift === 'N' ? `Nachtdienst · ${nightStr}` : ({F1:'Frühdienst · 6:30–15:00',L:'Langdienst · 6:30–19:30',S:'Spätdienst · 13:30–19:30',U:'Urlaub / Frei'}[selShift] || selShift);
     html += `<div class="evt-card" style="background:${myCl};border-color:${myBorder};margin-bottom:6px">
       <div class="evt-bar evt-bar-i"></div>
       <div style="flex:1"><div class="evt-title"><span class="sh sh${selShift}">${selShift}</span> ${sLabel}</div></div>
@@ -2095,7 +2098,7 @@ function renderHeute(dates) {
     html += `<div style="background:${pCl};border:1px solid ${pBorder};border-radius:var(--r);padding:9px 11px;margin-bottom:6px">
       <div style="font-size:10px;color:${pCd};font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px">${partnerName}</div>`;
     if (pShift) {
-      const pSLabel = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[pShift];
+      const pSLabel = {F1:'Frühdienst',L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[pShift];
       html += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:${partnerEvts.length?'5px':'0'}"><span class="sh sh${pShift}">${pShift}</span><span style="font-size:12px;color:var(--c5)">${pSLabel}</span></div>`;
     }
     partnerEvts.slice(0,3).forEach(e => {
@@ -2380,7 +2383,7 @@ function renderKalender() {
     const dayEvts = calendarEvents.filter(e => eventAppliesTo(e, ds));
     const prevSh = shifts[addDays(ds, -1)];
     const hasNightCont = prevSh === 'N';
-    const shiftLabel = {L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[sh] || '';
+    const shiftLabel = {F1:'Frühdienst',L:'Langdienst',S:'Spätdienst',N:'Nachtdienst',U:'Urlaub'}[sh] || '';
     let evtBars = `<div class="kal-evts">`;
     if (hasNightCont) evtBars += `<span class="cal-shift-bar cal-shift-N" style="opacity:.65">◀ –7:00</span>`;
     if (sh) evtBars += `<span class="cal-shift-bar cal-shift-${sh}">${sh} ${shiftLabel.slice(0,4)}</span>`;
@@ -2494,7 +2497,7 @@ function renderDaySheetContent(dateStr) {
   const prevDayStr = addDays(dateStr, -1);
   const prevSh = shifts[prevDayStr];
   const hasNightCont = prevSh === 'N'; // Nachtdienst vom Vortag läuft bis 7:00
-  const shiftLabels = {L:'Langdienst (6:30–19:30)',S:'Spätdienst (13:30–19:30)',N:'Nachtdienst (19:00–7:00)',U:'Urlaub / Frei'};
+  const shiftLabels = {F1:'Frühdienst (6:30–15:00)',L:'Langdienst (6:30–19:30)',S:'Spätdienst (13:30–19:30)',N:'Nachtdienst (19:00–7:00)',U:'Urlaub / Frei'};
   const iHours = isabellFree(dateStr);
   const lHours = lucasFree(dateStr);
 
@@ -3144,7 +3147,7 @@ async function runImport() {
   document.getElementById('impStatusMsg').textContent = 'KI analysiert den Kalender...';
 
   const prompt = `Du analysierst einen Screenshot eines Partnerapp-Kalenders für ${monthName}.
-Markierungen für Isabells Schichten (LILA/VIOLETT): L=Langdienst(6:30-19:30), S/S1=Spätdienst(13:30-19:30), N=Nachtdienst(19:00-7:00), Sonnensymbol/U/F=Urlaub.
+Markierungen für Isabells Schichten (LILA/VIOLETT): F1=Frühdienst(6:30-15:00), L=Langdienst(6:30-19:30), S/S1=Spätdienst(13:30-19:30), N=Nachtdienst(19:00-7:00), Sonnensymbol/U=Urlaub.
 TÜRKIS=Lucas (ignorieren), DUNKELBLAU=gemeinsam (ignorieren).
 Gib NUR ein JSON-Array zurück, kein Markdown, keine Erklärung:
 [{"date":"${yr}-${String(mo).padStart(2,'0')}-TT","type":"L|S|N|U"},...]
@@ -3193,7 +3196,7 @@ Nur eindeutige Tage eintragen. Unsichere Tage weglassen.`;
     document.getElementById('impFoundTitle').textContent = `${impParsed.length} Einträge erkannt`;
     document.getElementById('impFoundSub').textContent = monthName;
     const DNS = ['So','Mo','Di','Mi','Do','Fr','Sa'];
-    const lbls = {L:`<span class="sh shL">L</span> Langdienst`, S:`<span class="sh shS">S</span> Spätdienst`, N:`<span class="sh shN">N</span> Nachtdienst`, U:`<span class="sh shU">U</span> Urlaub`};
+    const lbls = {F1:`<span class="sh shF1">F1</span> Frühdienst`, L:`<span class="sh shL">L</span> Langdienst`, S:`<span class="sh shS">S</span> Spätdienst`, N:`<span class="sh shN">N</span> Nachtdienst`, U:`<span class="sh shU">U</span> Urlaub`};
     let listHTML = '';
     impParsed.forEach(e => {
       const d = new Date(e.date + 'T12:00:00');
