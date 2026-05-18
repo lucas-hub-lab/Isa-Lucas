@@ -1,0 +1,15 @@
+{
+  "name": "Isa & Lucas",
+  "short_name": "Zuhause",
+  "description": "Haushalts-App für Isa & Lucas",
+  "start_url": "/Isa-Lucas/",
+  "scope": "/Isa-Lucas/",
+  "display": "standalone",
+  "background_color": "#f4efe6",
+  "theme_color": "#f4efe6",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
