@@ -3563,6 +3563,13 @@ async function subscribeToPush(force = false) {
     window._push.subEndpoint = subJson.endpoint;
     window._push.lastSubscribeAt = new Date().toISOString();
 
+    // Bei force-Neuanmeldung: alte Einträge für diesen User löschen (verhindert doppelte Pushes)
+    if (force) {
+      await SB.from('push_subscriptions').delete()
+        .eq('user_name', activeUser)
+        .neq('endpoint', subJson.endpoint);
+    }
+
     const { error } = await SB.from('push_subscriptions').upsert({
       user_name: activeUser,
       endpoint: subJson.endpoint,
