@@ -2874,13 +2874,7 @@ async function toggleTask(id, wkOverride) {
     if (!comps[wk]) comps[wk] = {};
     if (data) comps[wk][id] = data;
     // Push wenn Setting aktiv
-    const doneEnabled = pushSettings.aufgabe_erledigt !== undefined ? pushSettings.aufgabe_erledigt : false;
-    if (doneEnabled) {
-      const t = tasks.find(t => t.id === id);
-      const doer = activeUser === 'lucas' ? 'Lucas' : 'Isabell';
-      const partner = activeUser === 'lucas' ? 'isabell' : 'lucas';
-      if (t) sendPushNotification(`✅ ${doer} hat erledigt`, t.name || 'Eine Aufgabe', partner);
-    }
+    // Push via DB-Trigger (trg_push_task_done) — kein clientseitiger Call nötig
   }
   saveFairness(wk);
 }
@@ -3003,13 +2997,7 @@ async function qaAdd() {
   const {data} = await SB.from('groceries').insert({name, cat:'Sonstiges', done:false, added_by: activeUser || 'lucas'}).select().single();
   if (data) {
     groceries.push(data);
-    // Push an Partner wenn Setting aktiv
-    const grocEnabled = pushSettings.neue_einkauf !== undefined ? pushSettings.neue_einkauf : false;
-    if (grocEnabled) {
-      const adder = activeUser === 'lucas' ? 'Lucas' : 'Isabell';
-      const partner = activeUser === 'lucas' ? 'isabell' : 'lucas';
-      sendPushNotification(`🛒 ${adder} hat hinzugefügt`, name, partner);
-    }
+    // Push via DB-Trigger (trg_push_grocery) — kein clientseitiger Call nötig
   }
   inp.value = '';
   if (activeTab === 3) render();
@@ -3476,16 +3464,7 @@ async function saveNote() {
   const {data, error} = await SB.from('notes').insert({author, to_user: noteToUser, content}).select().single();
   if (!error && data) {
     notes.unshift(data);
-    // Push an den Empfänger — nur wenn Setting aktiv
-    const noteEnabled = pushSettings.neue_notiz !== undefined ? pushSettings.neue_notiz : true;
-    if (noteEnabled) {
-      const pushTarget = noteToUser === 'both' ? 'both'
-        : noteToUser !== author ? noteToUser : null;
-      if (pushTarget) {
-        const authorName = author === 'lucas' ? 'Lucas' : 'Isabell';
-        sendPushNotification(`📝 Neue Notiz von ${authorName}`, content, pushTarget);
-      }
-    }
+    // Push via DB-Trigger (trg_push_note) — kein clientseitiger Call nötig
   }
   closeModal('noteModal');
   if (activeTab === 0) render();
