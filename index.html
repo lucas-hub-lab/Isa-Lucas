@@ -1283,6 +1283,38 @@ button,label,.ni,.toggle-row,.task-row,.groc-row,.cal-dc{-webkit-user-select:non
 </div>
 </div>
 
+<!-- ══ MODAL: Saisonaufgabe ══ -->
+<div class="modal-bg" id="seasonalModal">
+<div class="modal-sheet">
+  <div class="modal-drag" onclick="closeModal('seasonalModal')"><div class="modal-drag-bar"></div></div>
+  <div class="modal-title" id="seasonalModalTitle">🌿 Neue Saisonaufgabe</div>
+
+  <span class="field-label">Titel</span>
+  <input class="field-input" id="seaTitle" placeholder="z.B. Heizung befüllen">
+
+  <span class="field-label" style="margin-top:14px">Fällig in Monat(en)</span>
+  <div id="seaMonths" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+
+  <span class="field-label" style="margin-top:14px">Zuständig</span>
+  <div class="seg-ctrl" id="seaAssignCtrl" style="margin-top:5px">
+    <button class="seg-btn active" data-val="both" onclick="setSeaAssign('both')">Beide</button>
+    <button class="seg-btn" data-val="lucas" onclick="setSeaAssign('lucas')">Lucas</button>
+    <button class="seg-btn" data-val="isabell" onclick="setSeaAssign('isabell')">Isabell</button>
+  </div>
+
+  <span class="field-label" style="margin-top:14px">Notiz (optional)</span>
+  <input class="field-input" id="seaNote" placeholder="z.B. Wasser nachfüllen, Druck prüfen">
+
+  <div class="modal-btns" style="margin-top:20px">
+    <button class="modal-cancel" onclick="closeModal('seasonalModal')">Abbrechen</button>
+    <button class="modal-save" onclick="saveSeasonalTask()">Speichern</button>
+  </div>
+  <button id="seaDeleteBtn" style="display:none;width:100%;margin-top:10px;padding:13px;background:none;border:1px solid var(--terra);border-radius:var(--r);color:var(--terra);font-size:14px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer" onclick="deleteSeasonalTask()">
+    🗑 Aufgabe löschen
+  </button>
+</div>
+</div>
+
 <!-- ══ MODAL: Tag-Detail ══ -->
 <div class="modal-bg" id="daySheet">
 <div class="modal-sheet">
@@ -1332,6 +1364,7 @@ let editingTaskId = null;
 // ── Data ──
 let tasks = [], allTasksRaw = [];
 let comps = {}, shifts = {};
+let seasonalTasks = [], seasonalCompletions = {};
 let groceries = [], fairLog = [];
 let absences = new Set();
 let weekOverrides = {}, deferredTasks = {};
@@ -1589,7 +1622,7 @@ async function loadAll() {
   setSync('loading');
   try {
     // Core data — must succeed
-    const [tRes, cRes, sRes, gRes, fRes, aRes, evRes, nRes] = await Promise.all([
+    const [tRes, cRes, sRes, gRes, fRes, aRes, evRes, nRes, stRes, scRes] = await Promise.all([
       SB.from('tasks').select('*').order('id'),
       SB.from('task_completions').select('*'),
       SB.from('shifts').select('*'),
@@ -1598,6 +1631,8 @@ async function loadAll() {
       SB.from('absences').select('*'),
       SB.from('calendar_events').select('*').order('event_date'),
       SB.from('notes').select('*').order('created_at', {ascending:false}).limit(20),
+      SB.from('seasonal_tasks').select('*').order('id'),
+      SB.from('seasonal_completions').select('*'),
     ]);
     allTasksRaw = tRes.data || [];
     tasks = allTasksRaw.filter(row => row.active !== false);
@@ -1613,6 +1648,9 @@ async function loadAll() {
     absences = new Set((aRes.data || []).map(x => x.week_key));
     calendarEvents = evRes.data || [];
     notes = nRes.data || [];
+    seasonalTasks = stRes.data || [];
+    seasonalCompletions = {};
+    (scRes.data || []).forEach(x => { seasonalCompletions[x.task_id] = x; });
 
     // Overrides — optional, don't block core if fails
     weekOverrides = {}; deferredTasks = {};
@@ -1738,6 +1776,19 @@ function setupRealtime() {
     .on('postgres_changes', {event:'DELETE', schema:'public', table:'notes'}, (payload) => {
       notes = notes.filter(n => n.id !== payload.old.id);
       if (activeTab === 0) render();
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'seasonal_tasks'}, () => {
+      SB.from('seasonal_tasks').select('*').order('id').then(r => {
+        seasonalTasks = r.data || [];
+        if (activeTab === 4) render();
+      });
+    })
+    .on('postgres_changes', {event:'*', schema:'public', table:'seasonal_completions'}, () => {
+      SB.from('seasonal_completions').select('*').then(r => {
+        seasonalCompletions = {};
+        (r.data || []).forEach(x => { seasonalCompletions[x.task_id] = x; });
+        if (activeTab === 4) render();
+      });
     })
     .subscribe(s => {
       if (s === 'SUBSCRIBED') setSync('ok');
@@ -2363,6 +2414,7 @@ function renderKalender() {
 
   // Legend + add event button
   html += `<div style="display:flex;align-items:center;padding:4px 14px 6px;gap:8px">
+    <span class="sh shF1" style="font-size:8px">F1</span><span style="font-size:10px;color:var(--c5)">Früh</span>
     <span class="sh shL" style="font-size:8px">L</span><span style="font-size:10px;color:var(--c5)">Lang</span>
     <span class="sh shS" style="font-size:8px">S</span><span style="font-size:10px;color:var(--c5)">Spät</span>
     <span class="sh shN" style="font-size:8px">N</span><span style="font-size:10px;color:var(--c5)">Nacht</span>
@@ -2471,6 +2523,48 @@ function renderKalender() {
       <div><div style="font-size:12px;font-weight:600;color:var(--c6)">Isabell</div><div style="font-size:10px;color:var(--c4)">${iD}/${iT.length}</div></div>
     </div>
   </div>`;
+
+  // Saisonaufgaben
+  const curMonth = new Date().getMonth() + 1;
+  const curYear = new Date().getFullYear();
+  const SEA_MN = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+  function nextDue(months) {
+    const fut = months.filter(m => m >= curMonth);
+    return fut.length ? Math.min(...fut) : Math.min(...months) + 12;
+  }
+  const sortedSeasonal = [...seasonalTasks].sort((a,b) => nextDue(a.months) - nextDue(b.months));
+
+  html += `<div style="display:flex;align-items:center;padding:8px 14px 4px;gap:6px">
+    <div style="font-size:11px;color:var(--c4);font-weight:700;text-transform:uppercase;letter-spacing:.3px;flex:1">🌿 Saisonaufgaben</div>
+    <button class="btn-ghost" style="font-size:11px;padding:4px 9px" onclick="openSeasonalModal()">+ Neu</button>
+  </div>`;
+
+  if (sortedSeasonal.length === 0) {
+    html += `<div style="margin:0 14px 10px;padding:14px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);font-size:13px;color:var(--c4);text-align:center">Noch keine Saisonaufgaben · Tippe + Neu</div>`;
+  } else {
+    html += `<div style="margin:0 14px 10px;background:var(--c1);border:1px solid var(--c2);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden">`;
+    sortedSeasonal.forEach((t, idx) => {
+      const done = !!seasonalCompletions[t.id];
+      const monthStr = t.months.map(m => SEA_MN[m-1]).join(' · ');
+      const isDue = t.months.includes(curMonth);
+      const assignBadge = t.assign === 'lucas'
+        ? `<span style="font-size:9px;background:rgba(78,110,82,.15);color:var(--sage);padding:1px 5px;border-radius:4px;font-weight:600">L</span>`
+        : t.assign === 'isabell'
+        ? `<span style="font-size:9px;background:rgba(107,70,193,.12);color:var(--lav);padding:1px 5px;border-radius:4px;font-weight:600">I</span>`
+        : `<span style="font-size:9px;background:var(--c2);color:var(--c4);padding:1px 5px;border-radius:4px;font-weight:600">Beide</span>`;
+      const sep = idx < sortedSeasonal.length - 1 ? 'border-bottom:1px solid var(--c2);' : '';
+      html += `<div style="${sep}display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer" onclick="openSeasonalModal(${t.id})">
+        <div class="cb-wrap" onclick="event.stopPropagation();toggleSeasonalDone(${t.id})">
+          <div class="cb ${done ? 'checked' : ''}"></div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500;color:${done ? 'var(--c4)' : 'var(--c6)'};${done ? 'text-decoration:line-through;' : ''}">${t.title}</div>
+          <div style="font-size:11px;color:${isDue && !done ? 'var(--terra)' : 'var(--c4)'};margin-top:2px">${isDue && !done ? '⚡ ' : ''}${monthStr} &nbsp;${assignBadge}</div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
 
   html += `<div style="height:80px"></div>`;
   return html;
@@ -3020,6 +3114,81 @@ async function clearDoneGroceries() {
   const ids = groceries.filter(g => g.done).map(g => g.id);
   groceries = groceries.filter(g => !g.done);
   if (ids.length) await SB.from('groceries').delete().in('id', ids);
+  render();
+}
+
+/* ══════════════════════════════════════════
+   ACTIONS — SEASONAL TASKS
+══════════════════════════════════════════ */
+let editingSeasonalId = null;
+let selectedSeaMonths = [];
+const SEA_MN_LABELS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+
+function renderSeaMonthBtns() {
+  const container = document.getElementById('seaMonths');
+  if (!container) return;
+  container.innerHTML = SEA_MN_LABELS.map((name, i) => {
+    const m = i + 1;
+    const sel = selectedSeaMonths.includes(m);
+    return `<button onclick="toggleSeaMonth(${m})" style="padding:5px 10px;border-radius:6px;border:1px solid ${sel ? 'var(--sage)' : 'var(--c2)'};background:${sel ? 'rgba(78,110,82,.15)' : 'var(--c1)'};color:${sel ? 'var(--sage)' : 'var(--c4)'};font-size:12px;font-weight:${sel ? '700' : '400'};cursor:pointer;transition:all .15s">${name}</button>`;
+  }).join('');
+}
+function toggleSeaMonth(m) {
+  selectedSeaMonths = selectedSeaMonths.includes(m)
+    ? selectedSeaMonths.filter(x => x !== m)
+    : [...selectedSeaMonths, m].sort((a,b) => a-b);
+  renderSeaMonthBtns();
+}
+function setSeaAssign(val) {
+  document.querySelectorAll('#seaAssignCtrl .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
+}
+function openSeasonalModal(id) {
+  editingSeasonalId = id || null;
+  const t = id ? seasonalTasks.find(x => x.id === id) : null;
+  document.getElementById('seasonalModalTitle').textContent = t ? '✏️ Aufgabe bearbeiten' : '🌿 Neue Saisonaufgabe';
+  document.getElementById('seaTitle').value = t ? t.title : '';
+  document.getElementById('seaNote').value = t ? (t.note || '') : '';
+  selectedSeaMonths = t ? [...t.months] : [];
+  renderSeaMonthBtns();
+  setSeaAssign(t ? t.assign : 'both');
+  document.getElementById('seaDeleteBtn').style.display = t ? 'block' : 'none';
+  openModal('seasonalModal');
+  setTimeout(() => document.getElementById('seaTitle').focus(), 120);
+}
+async function saveSeasonalTask() {
+  const title = document.getElementById('seaTitle').value.trim();
+  if (!title) { alert('Bitte Titel eingeben'); return; }
+  if (selectedSeaMonths.length === 0) { alert('Bitte mindestens einen Monat auswählen'); return; }
+  const assign = document.querySelector('#seaAssignCtrl .seg-btn.active')?.dataset.val || 'both';
+  const note = document.getElementById('seaNote').value.trim() || null;
+  closeModal('seasonalModal');
+  if (editingSeasonalId) {
+    await SB.from('seasonal_tasks').update({title, months: selectedSeaMonths, assign, note}).eq('id', editingSeasonalId);
+    const idx = seasonalTasks.findIndex(t => t.id === editingSeasonalId);
+    if (idx >= 0) seasonalTasks[idx] = {...seasonalTasks[idx], title, months: selectedSeaMonths, assign, note};
+  } else {
+    const {data} = await SB.from('seasonal_tasks').insert({title, months: selectedSeaMonths, assign, note}).select().single();
+    if (data) seasonalTasks.push(data);
+  }
+  render();
+}
+async function deleteSeasonalTask() {
+  if (!editingSeasonalId || !confirm('Saisonaufgabe wirklich löschen?')) return;
+  closeModal('seasonalModal');
+  await SB.from('seasonal_tasks').delete().eq('id', editingSeasonalId);
+  seasonalTasks = seasonalTasks.filter(t => t.id !== editingSeasonalId);
+  delete seasonalCompletions[editingSeasonalId];
+  render();
+}
+async function toggleSeasonalDone(taskId) {
+  const yr = new Date().getFullYear();
+  if (seasonalCompletions[taskId]) {
+    await SB.from('seasonal_completions').delete().eq('task_id', taskId).eq('year', yr);
+    delete seasonalCompletions[taskId];
+  } else {
+    const {data} = await SB.from('seasonal_completions').insert({task_id: taskId, year: yr}).select().single();
+    if (data) seasonalCompletions[taskId] = data;
+  }
   render();
 }
 
